@@ -15,10 +15,15 @@ Claude Code (Opus 4.7) is the AI pair-programmer that scaffolded, built, and dep
 ## At-a-glance
 
 - **Location**: `/home/novakj/palkres-eshop`
+- **GitHub**: `git@github.com:TaraJura/palkres.git` (SSH as `TaraJura`, single `main` branch)
+- **Live URL**: <https://palkres.techtools.cz> (Let's Encrypt TLS, expires 2026-07-23, auto-renew via certbot)
+- **Admin URL**: `/admin` — `admin@palkres.cz` / `palkres-admin-2026` (seeded in `db/seeds.rb`, rotate via console: `User.find_by(email_address: …).update!(password: …)`)
 - **Ruby / Rails**: 4.0.1 / 8.1.2
-- **Database**: PostgreSQL 17 (role `palkres`, DBs `palkres_eshop_{dev,test,prod}`)
-- **Port (prod)**: 3003 (systemd service `palkres-eshop.service`)
-- **Supplier feed**: `https://www.artikon.cz/feeds/xml/VO_XML_Feed_Komplet_2.xml` (~163 MB, ~29,222 products)
+- **Database**: PostgreSQL 17 (role `palkres`, DBs `palkres_eshop_{development,test,production}` + 3 `_production_{cache,queue,cable}` for Solid)
+- **Port (prod)**: 3003, behind nginx on `palkres.techtools.cz` → systemd `palkres-eshop.service` (Puma 8 single mode + Solid Queue plugin)
+- **Supplier feed**: `https://www.artikon.cz/feeds/xml/VO_XML_Feed_Komplet_2.xml` (~163 MB, ~29 222 products)
+- **Bank account for QR-platba**: `6755089389/0800` → IBAN `CZ1908000000006755089389`, beneficiary `techtools s.r.o.` (placeholder for Palkres until they open their own account; see `.env` `PALKRES_BANK_IBAN`)
+- **Outgoing e-mail**: SMTP wired but not configured — set `SMTP_HOST/PORT/USER/PASS/DOMAIN` in `.env` to start sending real e-mails (currently `:test` delivery)
 
 ## How it works
 
@@ -184,52 +189,101 @@ The change log is the **single source of truth for "what happened to Palkres"**.
 
 | Model | Key fields |
 |---|---|
-| `User` | email, password_digest, role enum (customer/dealer/admin), first/last_name, phone |
-| `Address` | user_id, kind (billing/shipping), street, city, postal_code, country, company, ico, dic |
-| `Category` | ancestry, slug (friendly_id), name, external_path |
+| `User` | email_address (uniq), password_digest, role enum (customer / dealer / admin), first_name, last_name, phone |
+| `Address` | user_id, kind enum (billing / shipping), company, ico, dic, first_name, last_name, street, city, postal_code, country_code, phone |
+| `Category` | ancestry, ancestry_depth, slug (friendly_id), name, external_path, products_count (counter-cache, backfilled by importer SQL) |
 | `Manufacturer` | slug, name |
-| `Product` | artikon_id (uniq), sku, ean, slug, name, description (html), description_short, manufacturer_id, weight_kg, tax_rate, state, price_retail_cents, price_dealer_cents, price_wo_tax_cents, currency, stock_amount, availability_label, availability_days, item_group_id, supplier_url, active, synced_at |
-| `ProductCategory` | product_id, category_id |
-| `ProductImage` | product_id, url, position, has_attached_blob? |
-| `Cart` | user_id (nullable), session_token |
-| `CartItem` | cart_id, product_id, quantity, unit_price_cents |
-| `Order` | number, user_id, status, subtotal_cents, shipping_cents, tax_cents, total_cents, payment_state, shipping_state, billing/shipping_address jsonb, notes |
-| `OrderItem` | order_id, product_id, name_snapshot, sku_snapshot, quantity, unit_price_cents |
-| `Payment` | order_id, gateway, gateway_ref, amount_cents, status, raw_response jsonb |
-| `Shipment` | order_id, carrier, tracking_number, label_url, status |
-| `SyncRun` | started_at, finished_at, feed_etag, feed_last_modified, items_seen, items_created, items_updated, items_deactivated, errors jsonb |
+| `Product` | artikon_id (uniq), sku, ean, slug, name, description_html, description_short, description_clean, manufacturer_id, weight_kg, tax_rate, state, currency, price_retail_cents, price_dealer_cents, price_wo_tax_cents, stock_amount, availability_label, availability_days, item_group_id, supplier_url, manufacturer_part_number, active, topseller, synced_at |
+| `ProductCategory` | product_id, category_id, primary (bool) |
+| `ProductImage` | product_id, url, url_big, position, cached (bool, true once attached to ActiveStorage) + `has_one_attached :file` |
+| `Cart` | user_id (nullable), session_token (uniq) |
+| `CartItem` | cart_id, product_id, quantity (default 1 — see cart-add fix in change log), unit_price_cents |
+| `Order` | **number (uniq)**, **confirmation_token (uniq, urlsafe_base64)**, user_id (nullable for guest), email, phone, status enum (cart / placed / processing / shipped / delivered / cancelled, prefix: `status_*`), payment_state enum (pending / authorized / paid / refunded / failed, prefix: `payment_*`), shipping_state enum (pending / label_printed / handed_over / delivered, prefix: `shipping_*`), subtotal_cents, shipping_cents, tax_cents, total_cents, currency, payment_method, shipping_method, billing_address jsonb, shipping_address jsonb, notes, placed_at |
+| `OrderItem` | order_id, product_id (nullable, history preserved via snapshot), name_snapshot, sku_snapshot, quantity, unit_price_cents, line_total_cents |
+| `Payment` | order_id, gateway, gateway_ref, amount_cents, currency, status, raw_response jsonb |
+| `Shipment` | order_id, carrier, tracking_number, label_url, status, raw_response jsonb |
+| `SyncRun` | source, started_at, finished_at, feed_etag, feed_last_modified, items_seen, items_created, items_updated, items_deactivated, categories_created, manufacturers_created, status (running / succeeded / failed / skipped), errors_log jsonb |
+| `Session` | user_id, ip_address, user_agent (Rails 8 auth scaffold) |
+| `ActiveStorage::{Blob,Attachment,VariantRecord}` | standard, used by `ProductImage#file` once `ImageCacherJob` runs |
 
 ## Key paths
 
+### Code
 | Resource | Path |
 |---|---|
 | App root | `/home/novakj/palkres-eshop/` |
-| ARTIKON importer | `app/services/artikon/` |
-| Nightly sync job | `app/jobs/artikon_sync_job.rb` |
-| Image cacher | `app/jobs/image_cacher_job.rb` |
-| Recurring config | `config/recurring.yml` |
+| ARTIKON importer | `app/services/artikon/{feed_fetcher,feed_sax_handler,feed_importer}.rb` |
+| Nightly + on-demand jobs | `app/jobs/artikon_sync_job.rb`, `app/jobs/image_cacher_job.rb` |
+| Czech QR-platba (SPAYD) | `app/services/payments/czech_qr.rb` |
+| Cart finder (session/user) | `app/services/cart_finder.rb` |
+| Order mailer + views | `app/mailers/order_mailer.rb`, `app/views/order_mailer/confirmation.{html,text}.erb` |
+| Storefront controllers | `app/controllers/storefront/{base,home,categories,products,search,cart,checkouts,order_confirmations}_controller.rb` |
+| Storefront layout / views | `app/views/layouts/application.html.erb`, `app/views/storefront/**/*.erb` |
+| Account area | `app/controllers/account/{base,orders,profiles}_controller.rb`, `app/views/account/**/*.erb` |
+| Admin layout / nav / helper | `app/views/layouts/admin.html.erb`, `app/views/admin/shared/_nav_links.html.erb`, `app/helpers/admin_helper.rb` |
+| Admin controllers | `app/controllers/admin/{base,dashboard,products,orders,sync_runs}_controller.rb` |
+| Auth (Rails 8) | `app/controllers/{sessions,passwords}_controller.rb`, `app/controllers/concerns/authentication.rb` |
+| Auth views (Czech) | `app/views/sessions/new.html.erb`, `app/views/passwords/{new,edit}.html.erb` |
+| Pretty pagination helper | `app/helpers/application_helper.rb#pagy_nav_pretty` |
+| Pricing init | `config/initializers/money.rb` |
+| Pagination init | `config/initializers/pagy.rb` |
+
+### Operations
+| Resource | Path |
+|---|---|
+| Recurring jobs (cron) | `config/recurring.yml` (`artikon_nightly_sync` 0 3 * * *) |
 | DB config | `config/database.yml` (reads `.env`) |
+| Production env | `config/environments/production.rb` (SMTP wired off `SMTP_HOST` env) |
+| Routes | `config/routes.rb` |
+| Seeds (admin user) | `db/seeds.rb` |
 | Systemd unit | `/etc/systemd/system/palkres-eshop.service` |
-| Nginx site | `/etc/nginx/sites-available/palkres.techtools.cz` |
-| Env file (dev) | `.env` (gitignored) |
+| Nginx site | `/etc/nginx/sites-available/palkres.techtools.cz` (HTTP→HTTPS redirect via certbot) |
+| TLS certs | `/etc/letsencrypt/live/palkres.techtools.cz/` |
+| Env file (gitignored) | `/home/novakj/palkres-eshop/.env` |
+| Feed cache (gitignored) | `tmp/artikon/feed.xml` |
+| ActiveStorage local files | `storage/` |
 
 ## Common commands
 
 ```bash
-# Dev server
+# Dev server (rails + tailwind watcher via foreman)
 bin/dev
 
 # Console
 RAILS_ENV=development bin/rails console
+RAILS_ENV=production  bin/rails console
 
-# Manual ARTIKON sync
-bin/rails artikon:sync
+# Manual ARTIKON sync (synchronous — useful for ops checks / first import)
+RAILS_ENV=production bin/rails artikon:sync
 
-# Background jobs (Solid Queue) in production
-bin/jobs
+# Trigger via the queue instead (matches the nightly path)
+RAILS_ENV=production bin/rails runner 'ArtikonSyncJob.perform_later'
+
+# Render the order-confirmation e-mail in console (no SMTP send)
+RAILS_ENV=production bin/rails runner 'puts OrderMailer.confirmation(Order.last.id).body'
+
+# Verify QR / IBAN config
+RAILS_ENV=production bin/rails runner 'puts Payments::CzechQr.iban; puts Payments::CzechQr.placeholder?'
+
+# Asset rebuild (REQUIRED after Tailwind class changes ship to prod)
+RAILS_ENV=production bin/rails assets:precompile
 
 # Migrations (always backup prod first)
-bin/rails db:migrate
+RAILS_ENV=production pg_dump -U palkres -h 127.0.0.1 palkres_eshop_production \
+  > /home/novakj/backups/palkres_$(date +%Y%m%d_%H%M%S).sql
+RAILS_ENV=production bin/rails db:migrate
+
+# Restart prod (puma + Solid Queue supervisor in one unit)
+sudo systemctl restart palkres-eshop.service
+
+# Tail prod logs
+sudo journalctl -u palkres-eshop.service -f
+
+# Issue / renew TLS (auto-renewal already wired via certbot timer)
+sudo certbot renew --dry-run
+
+# Background jobs (Solid Queue) standalone — only if not already running in Puma
+bin/jobs
 
 # Logs (production)
 sudo journalctl -u palkres-eshop.service -f
@@ -252,6 +306,14 @@ sudo journalctl -u palkres-eshop.service -f
 ## Post-launch change log
 
 Newest at top. Every non-trivial production change should append an entry here.
+
+### 2026-04-25 — Documentation audit (this entry)
+- Refreshed the structured sections so they reflect everything that landed today and is in git (`cdc24f3` → `ccf92bb`):
+  - **At-a-glance**: added GitHub repo SSH URL, live URL + TLS expiry, admin login + rotation command, the techtools IBAN currently used for QR-platba, and SMTP-not-yet-configured note. Listed all 7 production DBs (primary + 3 Solid).
+  - **Data model**: `Order` row now lists `confirmation_token`, `email`, `phone`, all three enums (status / payment_state / shipping_state) with their prefixes, `payment_method`, `shipping_method`, `billing/shipping_address jsonb`, `placed_at`. `Category` has `ancestry_depth` + `products_count`. `ProductImage` notes the `cached` bool + `has_one_attached :file`. `Address` lists every column. Added `Session` row (Rails 8 auth). Added the three `ActiveStorage::*` tables.
+  - **Key paths**: split into "Code" (every services/jobs/mailer/helper/controller path that exists) and "Operations" (cron / nginx / TLS / env / cache).
+  - **Common commands**: added e-mail-rendering check, QR-config check, asset precompile (with the "REQUIRED after Tailwind class changes ship to prod" note that bit us once), pg_dump + migrate combo, certbot renewal dry-run.
+- No code change, just documentation. The change-log entries above are already complete; this audit only updates the structured sections that future-you and future-Claude will read first.
 
 ### 2026-04-25 — Login + password-reset views (Czech, mobile-first) + Rule 11 (Czech-only)
 - Replaced the Rails 8 generator's English `sessions/new`, `passwords/new`, `passwords/edit` with Czech, brand-styled views: card form on the left, gradient brand panel on the right (lg:+ only) with "Výtvarné potřeby pro radost z tvorby" + 3 benefit bullets. Inline icons on inputs (mail/lock SVGs), `min-h-12` tap targets, focus rose ring, "Zapomenuté heslo?" link inline with the Heslo label, autocompletes (`username` / `current-password` / `new-password`).
@@ -371,15 +433,41 @@ Verified post-deploy with `curl -A "Mozilla/5.0 (iPhone…)"` against `/`, `/hle
 ### 2026-04-24 — Initial build + deploy
 - Full scaffolding, models, importer, storefront, admin, cart, checkout, and first successful ARTIKON import on dev and production databases. See commits (if/when repo is initialized) for granular diffs.
 
+## Public routes
+
+| Method | Path | Controller#action | Notes |
+|---|---|---|---|
+| GET  | `/`                                | `storefront/home#show`             | featured + topsellers + brands |
+| GET  | `/hledat?q=…`                      | `storefront/search#show`           | filters: manufacturer / in-stock / price / sort |
+| GET  | `/kategorie/*path`                 | `storefront/categories#show`       | nested category, subcategories, manufacturer facet |
+| GET  | `/produkt/:slug`                   | `storefront/products#show`         | enqueues `ImageCacherJob` on first view |
+| GET  | `/kosik`                           | `storefront/cart#show`             | guest + logged-in |
+| POST | `/kosik/pridat/:product_id`        | `storefront/cart#add`              | redirects 303 → /kosik |
+| PATCH| `/kosik/polozka/:id`               | `storefront/cart#update`           | quantity stepper |
+| DELETE| `/kosik/polozka/:id`              | `storefront/cart#remove`           | trash icon |
+| GET  | `/pokladna`                        | `storefront/checkouts#show`        | 5-step form (Kontakt / Adresa / Doprava / Platba / Poznámka) |
+| POST | `/pokladna`                        | `storefront/checkouts#create`      | persists Order + enqueues `OrderMailer.confirmation`, redirects to confirmation |
+| GET  | `/objednavka/:number?token=…`      | `storefront/order_confirmations#show` | public, token- or owner-gated; 404 otherwise |
+| GET  | `/uctu/orders` etc.                | `account/*`                        | requires authentication |
+| GET  | `/admin*`                          | `admin/*`                          | requires `User#role == :admin` |
+| GET/POST | `/session/new`, `/session`     | `sessions#*`                       | Czech card login |
+| GET/POST/PUT | `/passwords/*`                | `passwords#*`                      | Czech reset flow |
+
 ## Verification checklist
 
-- `bin/rails db:create db:migrate` green
-- `bin/rails artikon:sync` creates ~29k products in < 10 min, memory < 300 MB
-- Homepage responds 200, category + product pages render
-- Cart → checkout → order with GoPay sandbox → admin sees pending → webhook → paid
-- `sudo systemctl status palkres-eshop.service` = active (running)
-- Nightly `ArtikonSyncJob` scheduled via Solid Queue `recurring.yml`
-- Re-running sync yields 0 duplicates and correct updated counts
+- `bin/rails db:create db:migrate` green on all three envs
+- `bin/rails artikon:sync` creates ~29 k products in < 10 min, memory < 300 MB; re-running yields 0 duplicates and increments `items_updated`
+- Storefront 200 on `/`, `/hledat`, `/kategorie/*`, `/produkt/:slug`, `/kosik`, `/pokladna`, `/objednavka/:number?token=…`, `/session/new`, `/passwords/new`
+- Mobile UA returns real HTML (not the Rails "browser unsupported" 406 stub) — see Rule 10
+- iPhone + Android `curl -A` smoke pass on the routes above
+- Cart: 1st add → qty 1, subsequent adds increment, [−] disables at 1, [+] caps at 99
+- Checkout submit → 303 → `/objednavka/:number?token=…` 200 with timeline + QR for `bank_transfer`
+- `OrderMailer.confirmation(id)` renders multipart HTML + text, inline `payment-qr.svg` attached, BCC to `info@palkres.cz`, subject `Potvrzení objednávky PK-… — Palkres`
+- `Payments::CzechQr.placeholder?` returns false in prod env
+- `/admin` 302→ login when anonymous; logged-in admin sees Přehled / Produkty / Objednávky / Syncy feedu
+- `sudo systemctl status palkres-eshop.service` = active (running) with Puma + Solid Queue dispatcher / worker / scheduler
+- Solid Queue cron loaded: `clear_solid_queue_finished_jobs` + `artikon_nightly_sync`
+- TLS valid (Let's Encrypt via certbot timer auto-renews)
 
 ## How to log a new change
 
