@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <title><%= content_for(:title) || "Palkres — výtvarné potřeby" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="<%= content_for(:description) || "Výtvarné potřeby, papírnictví, školní sortiment. Kvalitní produkty za férové ceny." %>">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield :head %>
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-6">
+        <%= link_to root_path, class: "flex items-center gap-2 font-bold text-xl tracking-tight" do %>
+          <span class="text-rose-600">Pal</span><span>kres</span>
+        <% end %>
+
+        <%= form_with url: search_path, method: :get, class: "flex-1", local: true do |f| %>
+          <div class="relative">
+            <%= f.text_field :q, value: params[:q], placeholder: "Hledat produkty, značky, EAN…",
+                             class: "w-full rounded-full border border-slate-200 bg-slate-100 focus:bg-white focus:border-rose-400 focus:ring-rose-200 px-5 py-2 outline-none" %>
+            <button type="submit" class="absolute right-1 top-1/2 -translate-y-1/2 px-4 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-sm">Hledat</button>
+          </div>
+        <% end %>
+
+        <nav class="hidden md:flex items-center gap-4 text-sm">
+          <% if authenticated? %>
+            <%= link_to "Můj účet", account_orders_path, class: "hover:text-rose-600" %>
+            <%= button_to "Odhlásit", session_path, method: :delete, class: "hover:text-rose-600", form_class: "inline" %>
+          <% else %>
+            <%= link_to "Přihlášení", new_session_path, class: "hover:text-rose-600" %>
+          <% end %>
+          <%= link_to kosik_path, class: "relative flex items-center gap-2 bg-slate-900 text-white rounded-full px-4 py-2 hover:bg-rose-600" do %>
+            <span>Košík</span>
+            <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white text-slate-900 text-xs rounded-full font-semibold"><%= current_cart.item_count %></span>
+          <% end %>
+        </nav>
+      </div>
+    </header>
+
+    <% if flash[:notice] %><div class="bg-emerald-50 border-b border-emerald-200 text-emerald-900 text-sm py-2 text-center"><%= flash[:notice] %></div><% end %>
+    <% if flash[:alert]  %><div class="bg-rose-50    border-b border-rose-200    text-rose-900    text-sm py-2 text-center"><%= flash[:alert]  %></div><% end %>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+      <%= yield %>
+    </main>
+
+    <footer class="bg-slate-900 text-slate-300 text-sm mt-12">
+      <div class="max-w-7xl mx-auto px-4 py-8 grid md:grid-cols-3 gap-6">
+        <div>
+          <div class="text-white font-semibold mb-2">Palkres s.r.o.</div>
+          <p>Výtvarné potřeby, papírnictví a školní sortiment. Sortiment od ARTIKON s.r.o.</p>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-2">Kontakt</div>
+          <p>E-mail: <a href="mailto:info@palkres.cz" class="hover:text-white">info@palkres.cz</a></p>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-2">Informace</div>
+          <ul class="space-y-1"><li>Obchodní podmínky</li><li>Doprava a platba</li><li>Reklamace</li></ul>
+        </div>
+      </div>
+      <div class="text-center py-3 text-xs border-t border-slate-800">© <%= Time.current.year %> Palkres s.r.o.</div>
+    </footer>
+  </body>
+</html>

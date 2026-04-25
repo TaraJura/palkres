@@ -1,0 +1,50 @@
+<% content_for :title, "Košík" %>
+<h1 class="text-3xl font-bold mb-6">Košík</h1>
+
+<% if @cart.cart_items.empty? %>
+  <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">
+    Košík je prázdný. <%= link_to "Prohlédnout katalog", root_path, class: "text-rose-600 underline" %>.
+  </div>
+<% else %>
+  <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+        <tr><th class="text-left p-3">Produkt</th><th class="p-3">Množství</th><th class="p-3 text-right">Cena</th><th class="p-3"></th></tr>
+      </thead>
+      <tbody>
+        <% @cart.cart_items.includes(:product).each do |item| %>
+          <tr class="border-t border-slate-100">
+            <td class="p-3">
+              <div class="flex items-center gap-3">
+                <% if item.product.primary_image_url %>
+                  <img src="<%= item.product.primary_image_url %>" class="w-14 h-14 object-contain bg-slate-50 rounded">
+                <% end %>
+                <div>
+                  <%= link_to item.product.name, product_path(slug: item.product.slug), class: "font-medium hover:text-rose-600" %>
+                  <div class="text-xs text-slate-500"><%= item.product.sku %></div>
+                </div>
+              </div>
+            </td>
+            <td class="p-3 text-center">
+              <%= form_with url: update_kosik_path(id: item.id), method: :patch, local: true, class: "inline-flex items-center gap-1" do |f| %>
+                <%= f.number_field :quantity, value: item.quantity, min: 1, max: 99, class: "w-16 border border-slate-200 rounded px-2 py-1 text-center" %>
+                <%= f.submit "OK", class: "text-xs text-slate-500 underline" %>
+              <% end %>
+            </td>
+            <td class="p-3 text-right font-medium"><%= format_price_cents(item.line_total_cents) %></td>
+            <td class="p-3 text-right">
+              <%= button_to "×", remove_kosik_path(id: item.id), method: :delete, class: "text-slate-400 hover:text-rose-600 text-xl leading-none" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+      <tfoot class="bg-slate-50">
+        <tr class="border-t border-slate-200"><td colspan="2" class="p-3 font-semibold text-right">Mezisoučet</td><td colspan="2" class="p-3 text-right text-lg font-bold"><%= format_price_cents(@cart.subtotal_cents) %></td></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="mt-6 flex justify-end">
+    <%= link_to "Pokračovat k pokladně →", storefront_checkout_path, class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 py-3 font-medium" %>
+  </div>
+<% end %>

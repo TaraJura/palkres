@@ -1,0 +1,21 @@
+<h1 class="text-2xl font-bold mb-4">Sync #<%= @sync_run.id %></h1>
+<div class="bg-white rounded-xl border border-slate-200 p-6 space-y-2 text-sm">
+  <div>Zdroj: <strong><%= @sync_run.source %></strong></div>
+  <div>Start: <strong><%= @sync_run.started_at %></strong></div>
+  <div>Konec: <strong><%= @sync_run.finished_at || "—" %></strong></div>
+  <div>Stav: <strong><%= @sync_run.status %></strong></div>
+  <div>Trvání: <strong><%= @sync_run.duration_seconds %> s</strong></div>
+  <div>Viděno: <strong><%= @sync_run.items_seen %></strong></div>
+  <div>Vytvořeno: <strong><%= @sync_run.items_created %></strong></div>
+  <div>Aktualizováno: <strong><%= @sync_run.items_updated %></strong></div>
+  <div>Deaktivováno: <strong><%= @sync_run.items_deactivated %></strong></div>
+  <div>Kategorií vytvořeno: <strong><%= @sync_run.categories_created %></strong></div>
+  <div>Výrobců vytvořeno: <strong><%= @sync_run.manufacturers_created %></strong></div>
+  <% if @sync_run.feed_etag.present? %><div>ETag: <code class="text-xs"><%= @sync_run.feed_etag %></code></div><% end %>
+  <% if @sync_run.errors_log.any? %>
+    <div class="mt-4">
+      <div class="font-semibold text-rose-600 mb-2">Chyby</div>
+      <pre class="bg-slate-100 p-3 rounded overflow-auto text-xs"><%= JSON.pretty_generate(@sync_run.errors_log) %></pre>
+    </div>
+  <% end %>
+</div>

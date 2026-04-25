@@ -1,0 +1,19 @@
+<% content_for :title, "Objednávka #{@order.number}" %>
+<h1 class="text-3xl font-bold mb-2">Objednávka <span class="font-mono"><%= @order.number %></span></h1>
+<p class="text-slate-500 mb-6">Stav: <strong><%= @order.status %></strong> · Platba: <strong><%= @order.payment_state %></strong></p>
+
+<div class="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-6">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs uppercase"><tr><th class="p-3 text-left">Produkt</th><th class="p-3">Množství</th><th class="p-3 text-right">Cena</th></tr></thead>
+    <tbody>
+      <% @order.order_items.each do |oi| %>
+        <tr class="border-t border-slate-100"><td class="p-3"><%= oi.name_snapshot %></td><td class="p-3 text-center"><%= oi.quantity %></td><td class="p-3 text-right"><%= format_price_cents(oi.line_total_cents) %></td></tr>
+      <% end %>
+    </tbody>
+    <tfoot class="bg-slate-50">
+      <tr class="border-t border-slate-200"><td colspan="2" class="p-3 text-right">Doprava</td><td class="p-3 text-right"><%= format_price_cents(@order.shipping_cents) %></td></tr>
+      <tr><td colspan="2" class="p-3 text-right font-bold">Celkem</td><td class="p-3 text-right font-bold text-lg"><%= format_price_cents(@order.total_cents) %></td></tr>
+    </tfoot>
+  </table>
+</div>
+<%= link_to "← Zpět", account_orders_path, class: "text-rose-600" %>

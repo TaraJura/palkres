@@ -1,0 +1,21 @@
+<h1 class="text-2xl font-bold mb-2"><%= @product.name %></h1>
+<p class="text-slate-500 mb-6 font-mono"><%= @product.artikon_id %> · SKU <%= @product.sku %></p>
+
+<div class="grid grid-cols-[240px_1fr] gap-6">
+  <% if @product.primary_image_url %>
+    <img src="<%= @product.primary_image_url %>" class="w-full border border-slate-200 rounded-xl">
+  <% end %>
+  <div class="space-y-3">
+    <div>Výrobce: <strong><%= @product.manufacturer&.name || "—" %></strong></div>
+    <div>Cena s DPH: <strong><%= format_price_cents(@product.price_retail_cents) %></strong></div>
+    <div>Cena bez DPH: <strong><%= format_price_cents(@product.price_wo_tax_cents) %></strong></div>
+    <div>Cena dealer: <strong><%= format_price_cents(@product.price_dealer_cents) %></strong></div>
+    <div>Sklad: <strong><%= @product.stock_amount %></strong> · dostupnost: <%= @product.availability_label %></div>
+    <div>Dodavatel: <%= link_to @product.supplier_url, @product.supplier_url, class: "text-rose-600 underline", target: "_blank" if @product.supplier_url %></div>
+    <%= form_with model: @product, url: admin_product_path(@product), method: :patch, class: "mt-4 space-y-2" do |f| %>
+      <label class="flex items-center gap-2"><%= f.check_box :active %> Aktivní</label>
+      <label class="flex items-center gap-2"><%= f.check_box :topseller %> Top seller</label>
+      <%= f.submit "Uložit", class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-4 py-2" %>
+    <% end %>
+  </div>
+</div>

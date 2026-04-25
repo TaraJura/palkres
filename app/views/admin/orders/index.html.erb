@@ -1,0 +1,19 @@
+<h1 class="text-2xl font-bold mb-4">Objednávky</h1>
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs uppercase"><tr><th class="p-3 text-left">Číslo</th><th class="p-3 text-left">Datum</th><th class="p-3 text-left">Zákazník</th><th class="p-3">Stav</th><th class="p-3">Platba</th><th class="p-3 text-right">Celkem</th></tr></thead>
+    <tbody>
+      <% @orders.each do |o| %>
+        <tr class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="p-3 font-mono"><%= link_to o.number, admin_order_path(o), class: "text-rose-600" %></td>
+          <td class="p-3"><%= o.created_at.strftime("%d. %m. %Y %H:%M") %></td>
+          <td class="p-3"><%= o.email %></td>
+          <td class="p-3 text-center"><%= o.status %></td>
+          <td class="p-3 text-center"><%= o.payment_state %></td>
+          <td class="p-3 text-right"><%= format_price_cents(o.total_cents) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-4"><%== pagy_nav(@pagy) %></div>

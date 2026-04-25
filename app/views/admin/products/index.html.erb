@@ -1,0 +1,24 @@
+<h1 class="text-2xl font-bold mb-4">Produkty</h1>
+<%= form_with url: admin_products_path, method: :get, local: true, class: "flex gap-2 mb-4" do |f| %>
+  <%= f.text_field :q, value: params[:q], placeholder: "Název, SKU nebo ARTIKON ID", class: "flex-1 border border-slate-200 rounded px-3 py-2" %>
+  <%= f.submit "Hledat", class: "bg-slate-900 hover:bg-slate-800 text-white rounded px-4 py-2" %>
+<% end %>
+
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs uppercase"><tr><th class="p-3 text-left">ARTIKON ID</th><th class="p-3 text-left">Název</th><th class="p-3 text-left">Výrobce</th><th class="p-3">Sklad</th><th class="p-3 text-right">Cena</th><th class="p-3">Aktivní</th></tr></thead>
+    <tbody>
+      <% @products.each do |p| %>
+        <tr class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="p-3 font-mono"><%= link_to p.artikon_id, admin_product_path(p), class: "text-rose-600" %></td>
+          <td class="p-3"><%= p.name %></td>
+          <td class="p-3"><%= p.manufacturer&.name %></td>
+          <td class="p-3 text-center"><%= p.stock_amount %></td>
+          <td class="p-3 text-right"><%= format_price_cents(p.price_retail_cents) %></td>
+          <td class="p-3 text-center"><%= p.active? ? "✓" : "×" %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-4"><%== pagy_nav(@pagy) %></div>

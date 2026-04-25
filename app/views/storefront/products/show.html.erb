@@ -1,0 +1,68 @@
+<% content_for :title, "#{@product.name} — Palkres" %>
+
+<nav class="text-sm text-slate-500 mb-4">
+  <%= link_to "Domů", root_path, class: "hover:text-rose-600" %>
+  <% if @primary_category %>
+    <% @primary_category.path.each do |p| %>
+      <span class="mx-1">›</span>
+      <%= link_to p.name, category_path_for(p), class: "hover:text-rose-600" %>
+    <% end %>
+  <% end %>
+  <span class="mx-1">›</span><span class="text-slate-900"><%= @product.name %></span>
+</nav>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white border border-slate-200 rounded-2xl p-6">
+  <div class="bg-slate-50 rounded-xl flex items-center justify-center aspect-square p-8">
+    <% if @product.primary_image_url %>
+      <img src="<%= @product.primary_image_url %>" alt="<%= @product.name %>" class="max-h-full max-w-full object-contain">
+    <% else %>
+      <div class="text-slate-300 text-6xl">⋯</div>
+    <% end %>
+  </div>
+  <div>
+    <% if @product.manufacturer %>
+      <div class="text-xs uppercase text-slate-400 font-semibold"><%= @product.manufacturer.name %></div>
+    <% end %>
+    <h1 class="text-3xl font-bold mt-1"><%= @product.name %></h1>
+    <div class="mt-2 text-sm text-slate-500">
+      <% if @product.sku.present? %>Kód: <span class="font-mono"><%= @product.sku %></span>&nbsp;&nbsp;<% end %>
+      <% if @product.ean.present? %>EAN: <span class="font-mono"><%= @product.ean %></span><% end %>
+    </div>
+
+    <div class="mt-6">
+      <div class="text-3xl font-bold text-rose-600"><%= format_price_cents(@product.price_retail_cents) %></div>
+      <div class="text-xs text-slate-500">bez DPH <%= format_price_cents(@product.price_wo_tax_cents) %>&nbsp;·&nbsp;DPH <%= @product.tax_rate %>%</div>
+    </div>
+
+    <div class="mt-4 text-sm">
+      <% if @product.in_stock? %>
+        <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">● skladem: <%= @product.stock_amount %> ks</span>
+      <% else %>
+        <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded">● <%= @product.availability_label || "na objednávku" %></span>
+      <% end %>
+      <% if @product.availability_days.to_i > 0 %>
+        <span class="ml-2 text-slate-500">Dodání do <%= @product.availability_days %> dnů</span>
+      <% end %>
+    </div>
+
+    <%= form_with url: add_kosik_path(product_id: @product.id), method: :post, class: "mt-6 flex gap-3" do |f| %>
+      <%= f.number_field :quantity, value: 1, min: 1, max: 99, class: "w-20 border border-slate-200 rounded-full px-4 py-3 text-center" %>
+      <%= f.submit "Vložit do košíku", class: "flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-full px-6 py-3 cursor-pointer" %>
+    <% end %>
+
+    <div class="mt-8 prose prose-sm max-w-none text-slate-700">
+      <%= sanitize(@product.description_html.presence || @product.description_short.to_s,
+                   tags: %w[p br strong em ul ol li span h2 h3 h4 a],
+                   attributes: %w[href style]) %>
+    </div>
+  </div>
+</div>
+
+<% if @related.any? %>
+  <section class="mt-10">
+    <h2 class="text-2xl font-semibold mb-4">Související produkty</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <%= render partial: "storefront/products/card", collection: @related, as: :product %>
+    </div>
+  </section>
+<% end %>

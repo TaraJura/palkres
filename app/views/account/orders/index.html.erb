@@ -1,0 +1,24 @@
+<% content_for :title, "Moje objednávky" %>
+<h1 class="text-3xl font-bold mb-4">Moje objednávky</h1>
+<% if @orders.any? %>
+  <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+        <tr><th class="p-3 text-left">Číslo</th><th class="p-3 text-left">Datum</th><th class="p-3">Stav</th><th class="p-3 text-right">Celkem</th><th class="p-3"></th></tr>
+      </thead>
+      <tbody>
+        <% @orders.each do |o| %>
+          <tr class="border-t border-slate-100">
+            <td class="p-3 font-mono"><%= o.number %></td>
+            <td class="p-3"><%= o.created_at.strftime("%d. %m. %Y") %></td>
+            <td class="p-3"><%= o.status %></td>
+            <td class="p-3 text-right font-semibold"><%= format_price_cents(o.total_cents) %></td>
+            <td class="p-3 text-right"><%= link_to "Detail", account_order_path(o), class: "text-rose-600" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">Zatím žádné objednávky.</div>
+<% end %>

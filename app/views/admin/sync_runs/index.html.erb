@@ -1,0 +1,23 @@
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Syncy feedu</h1>
+  <%= button_to "▶ Spustit teď", run_now_admin_sync_runs_path, method: :post, class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-4 py-2" %>
+</div>
+
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs uppercase"><tr><th class="p-3 text-left">Datum</th><th class="p-3">Stav</th><th class="p-3 text-right">Seen</th><th class="p-3 text-right">Created</th><th class="p-3 text-right">Updated</th><th class="p-3 text-right">Deactivated</th><th class="p-3 text-right">Trvání</th></tr></thead>
+    <tbody>
+      <% @sync_runs.each do |s| %>
+        <tr class="border-t border-slate-100">
+          <td class="p-3"><%= link_to s.started_at.strftime("%d. %m. %Y %H:%M"), admin_sync_run_path(s), class: "text-rose-600" %></td>
+          <td class="p-3 text-center"><%= s.status %></td>
+          <td class="p-3 text-right"><%= s.items_seen %></td>
+          <td class="p-3 text-right text-emerald-700"><%= s.items_created %></td>
+          <td class="p-3 text-right"><%= s.items_updated %></td>
+          <td class="p-3 text-right text-rose-600"><%= s.items_deactivated %></td>
+          <td class="p-3 text-right"><%= s.duration_seconds ? "#{s.duration_seconds} s" : "—" %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

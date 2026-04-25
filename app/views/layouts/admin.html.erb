@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <title>Admin — Palkres</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+  <body class="bg-slate-100 min-h-screen flex">
+    <aside class="w-60 bg-slate-900 text-slate-200 min-h-screen p-4">
+      <div class="text-white font-bold text-lg mb-6">Palkres Admin</div>
+      <nav class="space-y-1 text-sm">
+        <%= link_to "Přehled",     admin_root_path,        class: "block px-3 py-2 rounded hover:bg-slate-800" %>
+        <%= link_to "Produkty",    admin_products_path,    class: "block px-3 py-2 rounded hover:bg-slate-800" %>
+        <%= link_to "Objednávky",  admin_orders_path,      class: "block px-3 py-2 rounded hover:bg-slate-800" %>
+        <%= link_to "Syncy feedu", admin_sync_runs_path,   class: "block px-3 py-2 rounded hover:bg-slate-800" %>
+        <div class="border-t border-slate-800 mt-4 pt-4">
+          <%= link_to "← Zpět na e-shop", root_path, class: "block px-3 py-2 rounded hover:bg-slate-800" %>
+        </div>
+      </nav>
+    </aside>
+    <main class="flex-1 p-6">
+      <% if flash[:notice] %><div class="mb-4 bg-emerald-100 border border-emerald-300 text-emerald-800 px-4 py-2 rounded"><%= flash[:notice] %></div><% end %>
+      <% if flash[:alert]  %><div class="mb-4 bg-rose-100    border border-rose-300    text-rose-800    px-4 py-2 rounded"><%= flash[:alert]  %></div><% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>

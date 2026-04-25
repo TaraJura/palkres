@@ -1,0 +1,10 @@
+<h1 class="text-2xl font-bold mb-6">Přehled</h1>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Produkty celkem</div><div class="text-3xl font-bold"><%= @products_total %></div></div>
+  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Aktivní produkty</div><div class="text-3xl font-bold text-emerald-600"><%= @products_active %></div></div>
+  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Nové objednávky</div><div class="text-3xl font-bold text-rose-600"><%= @orders_pending %></div></div>
+  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Poslední sync</div><div class="text-sm"><%= @last_sync ? "#{@last_sync.status} · #{@last_sync.started_at.strftime('%d. %m. %H:%M')}" : "—" %></div></div>
+</div>
+<div class="mt-8">
+  <%= button_to "Spustit sync ARTIKON feedu", run_now_admin_sync_runs_path, method: :post, class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-5 py-2" %>
+</div>

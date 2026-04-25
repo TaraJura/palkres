@@ -1,0 +1,23 @@
+<h1 class="text-2xl font-bold mb-2">Objednávka <span class="font-mono"><%= @order.number %></span></h1>
+<p class="text-slate-500 mb-4"><%= @order.email %> · <%= @order.created_at.strftime("%d. %m. %Y %H:%M") %></p>
+
+<div class="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+  <h2 class="font-semibold mb-3">Položky</h2>
+  <table class="w-full text-sm">
+    <% @order.order_items.each do |oi| %>
+      <tr class="border-b border-slate-100"><td class="py-2"><%= oi.name_snapshot %></td><td class="py-2 text-center"><%= oi.quantity %> ks</td><td class="py-2 text-right"><%= format_price_cents(oi.line_total_cents) %></td></tr>
+    <% end %>
+    <tr><td colspan="2" class="py-2 text-right font-semibold">Doprava</td><td class="py-2 text-right"><%= format_price_cents(@order.shipping_cents) %></td></tr>
+    <tr><td colspan="2" class="py-2 text-right font-bold">Celkem</td><td class="py-2 text-right text-lg font-bold"><%= format_price_cents(@order.total_cents) %></td></tr>
+  </table>
+</div>
+
+<div class="bg-white rounded-xl border border-slate-200 p-6">
+  <h2 class="font-semibold mb-3">Stavy</h2>
+  <%= form_with model: @order, url: admin_order_path(@order), method: :patch, class: "grid grid-cols-3 gap-3" do |f| %>
+    <label>Stav <%= f.select :status,         Order.statuses.keys.map { |k| [k, k] },        {}, class: "w-full border border-slate-200 rounded px-3 py-2" %></label>
+    <label>Platba <%= f.select :payment_state, Order.payment_states.keys.map { |k| [k, k] }, {}, class: "w-full border border-slate-200 rounded px-3 py-2" %></label>
+    <label>Doprava <%= f.select :shipping_state, Order.shipping_states.keys.map { |k| [k, k] }, {}, class: "w-full border border-slate-200 rounded px-3 py-2" %></label>
+    <div class="col-span-3"><%= f.submit "Uložit", class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-5 py-2" %></div>
+  <% end %>
+</div>

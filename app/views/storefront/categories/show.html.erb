@@ -1,0 +1,66 @@
+<% content_for :title, "#{@category.name} — Palkres" %>
+
+<nav class="text-sm text-slate-500 mb-4">
+  <%= link_to "Domů", root_path, class: "hover:text-rose-600" %>
+  <% @category.path.each do |p| %>
+    <span class="mx-1">›</span>
+    <% if p == @category %>
+      <span class="text-slate-900"><%= p.name %></span>
+    <% else %>
+      <%= link_to p.name, category_path_for(p), class: "hover:text-rose-600" %>
+    <% end %>
+  <% end %>
+</nav>
+
+<div class="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+  <aside class="space-y-6">
+    <% if @subcategories.any? %>
+      <div>
+        <h3 class="font-semibold mb-2 text-sm uppercase text-slate-500">Podkategorie</h3>
+        <ul class="space-y-1 text-sm">
+          <% @subcategories.each do |sub| %>
+            <li><%= link_to "#{sub.name} (#{sub.products_count})", category_path_for(sub), class: "hover:text-rose-600" %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+    <% if @manufacturers_for_facet.any? %>
+      <div>
+        <h3 class="font-semibold mb-2 text-sm uppercase text-slate-500">Výrobce</h3>
+        <ul class="space-y-1 text-sm">
+          <% @manufacturers_for_facet.each do |m| %>
+            <li><%= link_to m.name, url_for(request.params.merge(manufacturer_id: m.id)), class: "hover:text-rose-600" %></li>
+          <% end %>
+        </ul>
+        <% if params[:manufacturer_id].present? %>
+          <div class="mt-2"><%= link_to "× zrušit filtr", url_for(request.params.except(:manufacturer_id)), class: "text-xs text-slate-500 underline" %></div>
+        <% end %>
+      </div>
+    <% end %>
+  </aside>
+
+  <div>
+    <div class="flex items-baseline justify-between mb-4">
+      <h1 class="text-3xl font-bold"><%= @category.name %></h1>
+      <div class="text-sm text-slate-500">
+        <%== pagy_info(@pagy, item_name: "produktů") %>
+        <form class="inline-block ml-3">
+          <select name="sort" onchange="this.form.submit()" class="border border-slate-200 rounded px-2 py-1">
+            <option value="name"                selected="<%= params[:sort]=='name' %>">Název</option>
+            <option value="price_retail_cents"  selected="<%= params[:sort]=='price_retail_cents' %>">Cena</option>
+            <option value="synced_at"           selected="<%= params[:sort]=='synced_at' %>">Novinky</option>
+          </select>
+        </form>
+      </div>
+    </div>
+
+    <% if @products.any? %>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <%= render partial: "storefront/products/card", collection: @products, as: :product %>
+      </div>
+      <div class="mt-6"><%== pagy_nav(@pagy) %></div>
+    <% else %>
+      <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">V této kategorii zatím nejsou produkty.</div>
+    <% end %>
+  </div>
+</div>

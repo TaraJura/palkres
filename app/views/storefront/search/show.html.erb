@@ -1,0 +1,13 @@
+<% content_for :title, "Hledat: #{@query}" %>
+
+<h1 class="text-3xl font-bold mb-1">Vyhledávání</h1>
+<p class="text-slate-500 mb-6"><%== pagy_info(@pagy, item_name: "výsledků") %> pro „<strong><%= @query %></strong>"</p>
+
+<% if @products.any? %>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <%= render partial: "storefront/products/card", collection: @products, as: :product %>
+  </div>
+  <div class="mt-6"><%== pagy_nav(@pagy) %></div>
+<% else %>
+  <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">Nic jsme nenašli. Zkuste jiná klíčová slova.</div>
+<% end %>
