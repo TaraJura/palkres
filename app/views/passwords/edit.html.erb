@@ -1,21 +1,48 @@
-<div class="mx-auto md:w-2/3 w-full">
-  <% if alert = flash[:alert] %>
-    <p class="py-2 px-3 bg-red-50 mb-5 text-red-500 font-medium rounded-lg inline-block" id="alert"><%= alert %></p>
-  <% end %>
+<% content_for :title, "Nové heslo — Palkres" %>
 
-  <h1 class="font-bold text-4xl">Update your password</h1>
+<div class="max-w-md mx-auto">
+  <div class="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
+    <h1 class="text-2xl md:text-3xl font-bold mb-2">Nastavte si nové heslo</h1>
+    <p class="text-sm text-slate-500 mb-6">
+      Zvolte si silné heslo. Doporučujeme alespoň 10 znaků, kombinace písmen a číslic.
+    </p>
 
-  <%= form_with url: password_path(params[:token]), method: :put, class: "contents" do |form| %>
-    <div class="my-5">
-      <%= form.password_field :password, required: true, autocomplete: "new-password", placeholder: "Enter new password", maxlength: 72, class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+    <%= form_with url: password_path(params[:token]), method: :put, local: true, class: "space-y-4" do |form| %>
+      <div>
+        <label for="password" class="block text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Nové heslo</label>
+        <div class="relative">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          <%= form.password_field :password,
+                id: "password",
+                required: true,
+                autofocus: true,
+                autocomplete: "new-password",
+                placeholder: "alespoň 10 znaků",
+                maxlength: 72,
+                class: "w-full min-h-12 pl-12 pr-4 py-3 border border-slate-200 rounded-lg text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+        </div>
+      </div>
+
+      <div>
+        <label for="password_confirmation" class="block text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">Heslo znovu</label>
+        <div class="relative">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          <%= form.password_field :password_confirmation,
+                id: "password_confirmation",
+                required: true,
+                autocomplete: "new-password",
+                placeholder: "zopakujte stejné heslo",
+                maxlength: 72,
+                class: "w-full min-h-12 pl-12 pr-4 py-3 border border-slate-200 rounded-lg text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+        </div>
+      </div>
+
+      <%= form.submit "Uložit nové heslo",
+            class: "w-full min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold rounded-full px-6 py-3 cursor-pointer text-base transition" %>
+    <% end %>
+
+    <div class="mt-6 pt-6 border-t border-slate-100 text-center text-sm">
+      <%= link_to "← Zpět na přihlášení", new_session_path, class: "text-rose-600 hover:underline" %>
     </div>
-
-    <div class="my-5">
-      <%= form.password_field :password_confirmation, required: true, autocomplete: "new-password", placeholder: "Repeat new password", maxlength: 72, class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
-    </div>
-
-    <div class="inline">
-      <%= form.submit "Save", class: "w-full sm:w-auto text-center rounded-md px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white inline-block font-medium cursor-pointer" %>
-    </div>
-  <% end %>
+  </div>
 </div>

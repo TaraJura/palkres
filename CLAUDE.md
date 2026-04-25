@@ -119,7 +119,40 @@ Most Czech e-shop traffic is mobile. The phone breakpoint is the **default**, th
 
 When in doubt, *open the page on your phone first*. If the phone view feels cramped, broken, or hostile to touch, the change is not done.
 
-### 11. Document EVERY change in this CLAUDE.md — no exceptions
+### 11. The whole app is in Czech — every user-facing string MUST be in Czech
+The audience is Czech consumers and a Czech client (Palkres). Every label, button, placeholder, helper text, error message, e-mail subject, e-mail body, flash notice, page title, status name shown to users, empty-state copy, and admin section header must be in Czech. No English remnants.
+
+**Where to look for English creep**:
+
+- **Rails-generated scaffolds** ship with English strings (`Sign in`, `Forgot password?`, `Save`, `New …`). Translate every one immediately on generation — don't merge the scaffold and forget. The `sessions/new` and `passwords/{new,edit}` views were originally English; we replaced them on 2026-04-25 — same vigilance applies to anything `bin/rails generate` produces.
+- **Default Rails validation messages** ("can't be blank", "is invalid", "is too short"). Set `config.i18n.default_locale = :cs` and provide a Czech translation file (`rails-i18n` gem is the cleanest source) before any form ships to a real user.
+- **`Time#strftime` literal formats** — `%A` returns "Monday", not "pondělí". Use `I18n.l(time, format: …)` with a Czech locale, or write the format manually.
+- **Money / number formatting** — Czech uses space as thousand separator and comma as decimal (`1 234,50 Kč`). `config/initializers/money.rb` already enforces this; don't undo it.
+- **HTML `<title>` tags and meta descriptions** — every view should `content_for :title` with a Czech title.
+- **Enum values rendered raw in views** (`order.status.humanize` → "Placed"). Either add a Czech-name helper (`AdminHelper#status_label_cs(status)`) or ship a translations YAML.
+- **Form `placeholder`** — never English ("Enter email"). Use Czech ("vase@adresa.cz").
+- **E-mail subject + body** (`OrderMailer`) — Czech only.
+- **Admin pages too.** The fact that Palkres staff use them doesn't excuse English copy; the eventual user is Czech-speaking.
+
+**The only acceptable English**:
+
+- Code (variables, classes, methods, comments) — international convention, don't translate.
+- HTTP / JSON keys for external APIs (GoPay, Packeta, ARTIKON feed) — those are wire-format, not UI.
+- `lang="cs"` attribute on `<html>` — the value itself is technical.
+
+**Recipe before merging any UI/text change**:
+
+1. Grep the diff for English-only strings:
+   ```bash
+   git diff | grep -E "(Sign |Save\b|Submit\b|Forgot|Error\b|Welcome|New |Edit |Delete|Cancel|Back\b|Next\b|Search\b)"
+   ```
+   Any hit needs a Czech equivalent (or proves it's a code identifier, not user copy).
+2. Open the page on the live site and skim every word.
+3. Mailers: render `OrderMailer.confirmation(id).body` in console and confirm the subject + every line is Czech.
+
+When in doubt: ask Jiří for the right Czech phrasing, don't invent loose translations. Czech commerce tone is generally more formal ("Vaše objednávka byla přijata", not "Hotovo!").
+
+### 12. Document EVERY change in this CLAUDE.md — no exceptions
 Claude Code is the **architect and main developer** of this app. That role is not just a label — it carries the responsibility of keeping the project's institutional memory in this file. Every change to production (or to anything that ships to production) must leave a trail here.
 
 **The rule (binding for every Claude session and every human contributor)**:
@@ -219,6 +252,12 @@ sudo journalctl -u palkres-eshop.service -f
 ## Post-launch change log
 
 Newest at top. Every non-trivial production change should append an entry here.
+
+### 2026-04-25 — Login + password-reset views (Czech, mobile-first) + Rule 11 (Czech-only)
+- Replaced the Rails 8 generator's English `sessions/new`, `passwords/new`, `passwords/edit` with Czech, brand-styled views: card form on the left, gradient brand panel on the right (lg:+ only) with "Výtvarné potřeby pro radost z tvorby" + 3 benefit bullets. Inline icons on inputs (mail/lock SVGs), `min-h-12` tap targets, focus rose ring, "Zapomenuté heslo?" link inline with the Heslo label, autocompletes (`username` / `current-password` / `new-password`).
+- All copy translated: "Přihlášení", "Přihlásit se", "Zapomenuté heslo", "Poslat instrukce", "Nastavte si nové heslo", "Uložit nové heslo", "Zpět na přihlášení", placeholder `vase@adresa.cz`, password "alespoň 10 znaků".
+- Bug discovered while testing: a Write to `sessions/new.html.erb` was silently rejected by the harness because the file hadn't been Read in this session yet — the smoke test still showed Czech only because the application layout's header link "Přihlášení" was leaking into the grep. Fixed by re-Reading then Writing.
+- **New Rule 11 in Critical project rules**: "The whole app is in Czech — every user-facing string MUST be in Czech." Lists English-creep traps (Rails scaffolds, validation messages, `strftime %A`, money formatting, enum.humanize), the only acceptable English (code identifiers, wire-format keys, `lang="cs"`), and a pre-merge grep recipe. The previous Rule 11 (document-every-change) renumbered to Rule 12.
 
 ### 2026-04-25 — Admin redesign + slug-lookup 404 fix
 - **Bug**: `/admin/products/<slug>` returned 404 because `Admin::ProductsController#show` (and `#update`) used `Product.find(params[:id])` instead of `Product.friendly.find`. The index links to slugged URLs but the action couldn't resolve them.

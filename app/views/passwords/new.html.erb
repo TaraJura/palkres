@@ -1,17 +1,35 @@
-<div class="mx-auto md:w-2/3 w-full">
-  <% if alert = flash[:alert] %>
-    <p class="py-2 px-3 bg-red-50 mb-5 text-red-500 font-medium rounded-lg inline-block" id="alert"><%= alert %></p>
-  <% end %>
+<% content_for :title, "Zapomenuté heslo — Palkres" %>
 
-  <h1 class="font-bold text-4xl">Forgot your password?</h1>
+<div class="max-w-md mx-auto">
+  <div class="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
+    <h1 class="text-2xl md:text-3xl font-bold mb-2">Zapomenuté heslo</h1>
+    <p class="text-sm text-slate-500 mb-6">
+      Zadejte e-mail, který jste použil při registraci. Pošleme Vám odkaz pro nastavení nového hesla.
+    </p>
 
-  <%= form_with url: passwords_path, class: "contents" do |form| %>
-    <div class="my-5">
-      <%= form.email_field :email_address, required: true, autofocus: true, autocomplete: "username", placeholder: "Enter your email address", value: params[:email_address], class: "block shadow-sm rounded-md border border-gray-400 focus:outline-solid focus:outline-blue-600 px-3 py-2 mt-2 w-full" %>
+    <%= form_with url: passwords_path, local: true, class: "space-y-4" do |form| %>
+      <div>
+        <label for="email_address" class="block text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">E-mail</label>
+        <div class="relative">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <%= form.email_field :email_address,
+                id: "email_address",
+                required: true,
+                autofocus: true,
+                autocomplete: "username",
+                inputmode: "email",
+                placeholder: "vase@adresa.cz",
+                value: params[:email_address],
+                class: "w-full min-h-12 pl-12 pr-4 py-3 border border-slate-200 rounded-lg text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+        </div>
+      </div>
+
+      <%= form.submit "Poslat instrukce",
+            class: "w-full min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold rounded-full px-6 py-3 cursor-pointer text-base transition" %>
+    <% end %>
+
+    <div class="mt-6 pt-6 border-t border-slate-100 text-center text-sm">
+      <%= link_to "← Zpět na přihlášení", new_session_path, class: "text-rose-600 hover:underline" %>
     </div>
-
-    <div class="inline">
-      <%= form.submit "Email reset instructions", class: "w-full sm:w-auto text-center rounded-lg px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white inline-block font-medium cursor-pointer" %>
-    </div>
-  <% end %>
+  </div>
 </div>
