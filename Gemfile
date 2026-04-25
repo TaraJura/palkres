@@ -46,6 +46,7 @@ gem "friendly_id", "~> 5.5" # SEO slugs
 gem "pagy", "~> 9.0"        # Pagination
 gem "money-rails", "~> 1.15" # Prices as cents
 gem "dotenv-rails"          # .env loader for dev
+gem "rqrcode", "~> 3.0"     # Czech QR-payment generation (SPAYD)
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

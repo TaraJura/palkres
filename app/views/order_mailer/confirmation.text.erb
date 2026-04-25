@@ -1,0 +1,58 @@
+<%
+  payment_label =
+    case @order.payment_method
+    when "gopay"          then "Karta / GoPay"
+    when "bank_transfer"  then "Bankovní převod"
+    else (@order.payment_method.presence || "—").humanize
+    end
+  shipping_label =
+    case @order.shipping_method
+    when "packeta"        then "Zásilkovna"
+    when "ceska_posta"    then "Česká pošta"
+    else (@order.shipping_method.presence || "—").humanize
+    end
+  vs = @order.number.delete("^0-9")
+%>
+DĚKUJEME ZA OBJEDNÁVKU!
+
+Číslo objednávky: <%= @order.number %>
+Sledovat objednávku: <%= @confirmation_url %>
+
+<% if @order.payment_method == "bank_transfer" %>
+PLATEBNÍ ÚDAJE
+--------------
+IBAN:               <%= Payments::CzechQr.iban %>
+Variabilní symbol:  <%= vs %>
+Částka:             <%= format_price_cents(@order.total_cents) %>
+Zpráva pro příjemce: Palkres <%= @order.number %>
+<% if @qr_payload %>
+QR-PLATBA (SPAYD): <%= @qr_payload %>
+(QR kód najdete v HTML verzi e-mailu.)
+<% end %>
+<% end %>
+
+POLOŽKY
+-------
+<% @order.order_items.each do |oi| %>
+- <%= oi.name_snapshot %>  ×  <%= oi.quantity %>  =  <%= format_price_cents(oi.line_total_cents) %>
+<% end %>
+
+Mezisoučet:    <%= format_price_cents(@order.subtotal_cents) %>
+Doprava:       <%= format_price_cents(@order.shipping_cents) %> (<%= shipping_label %>)
+Celkem:        <%= format_price_cents(@order.total_cents) %>
+
+DORUČOVACÍ ADRESA
+-----------------
+<% addr = @order.shipping_address.presence || @order.billing_address %>
+<%= [addr["first_name"], addr["last_name"]].compact_blank.join(" ") %>
+<% if addr["company"].present? %><%= addr["company"] %>
+<% end %><%= addr["street"] %>
+<%= [addr["postal_code"], addr["city"]].compact_blank.join(" ") %>
+<%= addr["country_code"] %>
+
+Doprava: <%= shipping_label %>
+Platba:  <%= payment_label %>
+
+Otázky? info@palkres.cz
+
+— Palkres s.r.o.

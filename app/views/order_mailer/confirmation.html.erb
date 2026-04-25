@@ -1,0 +1,137 @@
+<%
+  payment_label =
+    case @order.payment_method
+    when "gopay"          then "Karta / GoPay"
+    when "bank_transfer"  then "Bankovní převod"
+    else (@order.payment_method.presence || "—").humanize
+    end
+  shipping_label =
+    case @order.shipping_method
+    when "packeta"        then "Zásilkovna"
+    when "ceska_posta"    then "Česká pošta"
+    else (@order.shipping_method.presence || "—").humanize
+    end
+  vs = @order.number.delete("^0-9")
+%>
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Potvrzení objednávky <%= @order.number %></title>
+</head>
+<body style="margin:0; padding:0; background:#f8fafc; font-family:Helvetica,Arial,sans-serif; color:#0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <!-- Hero -->
+        <tr><td style="padding:28px 24px 16px; text-align:center; background:linear-gradient(135deg,#ecfdf5 0%,#fff7ed 100%);">
+          <div style="display:inline-block; width:56px; height:56px; line-height:56px; background:#d1fae5; color:#047857; border-radius:50%; font-size:28px; font-weight:bold;">✓</div>
+          <h1 style="margin:12px 0 4px; font-size:22px;">Děkujeme za objednávku!</h1>
+          <p style="margin:0; color:#475569; font-size:14px;">
+            Číslo objednávky: <strong style="font-family:monospace; color:#0f172a;"><%= @order.number %></strong>
+          </p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:24px;">
+          <p style="margin:0 0 16px; font-size:15px;">Dobrý den<% if @order.billing_address["first_name"].present? %> <%= @order.billing_address["first_name"] %><% end %>,</p>
+          <p style="margin:0 0 16px; font-size:15px; line-height:1.5;">
+            potvrzujeme přijetí Vaší objednávky. Níže najdete rekapitulaci.
+            Stav objednávky můžete kdykoliv sledovat na adrese:
+          </p>
+          <p style="margin:0 0 24px;"><a href="<%= @confirmation_url %>" style="color:#e11d48; word-break:break-all;"><%= @confirmation_url %></a></p>
+
+          <% if @order.payment_method == "bank_transfer" %>
+            <!-- Payment block -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef3c7; border:1px solid #fde68a; border-radius:12px; margin-bottom:24px;">
+              <tr><td style="padding:16px 18px;">
+                <h2 style="margin:0 0 8px; font-size:16px; color:#92400e;">💳 Platební údaje</h2>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px; color:#78350f;">
+                  <tr><td style="padding:2px 0;"><strong>Číslo účtu (IBAN):</strong></td><td style="padding:2px 0 2px 12px; font-family:monospace;"><%= Payments::CzechQr.iban %></td></tr>
+                  <tr><td style="padding:2px 0;"><strong>Variabilní symbol:</strong></td><td style="padding:2px 0 2px 12px; font-family:monospace;"><%= vs %></td></tr>
+                  <tr><td style="padding:2px 0;"><strong>Částka:</strong></td><td style="padding:2px 0 2px 12px;"><strong><%= format_price_cents(@order.total_cents) %></strong></td></tr>
+                  <tr><td style="padding:2px 0;"><strong>Zpráva:</strong></td><td style="padding:2px 0 2px 12px;">Palkres <%= @order.number %></td></tr>
+                </table>
+
+                <% if @qr_payload %>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
+                    <tr>
+                      <td valign="top" style="padding-right:14px; width:160px;">
+                        <img src="cid:payment-qr.svg" alt="QR platba"
+                             width="150" height="150"
+                             style="display:block; background:#fff; border:1px solid #fde68a; border-radius:8px; padding:8px;">
+                      </td>
+                      <td valign="top" style="font-size:13px; color:#78350f; line-height:1.5;">
+                        <strong>Naskenujte QR kód</strong> v mobilní aplikaci Vaší banky a platba se předvyplní sama. Zaplaťte do <strong>5 dní</strong>, abychom mohli objednávku co nejrychleji zpracovat.
+                      </td>
+                    </tr>
+                  </table>
+                <% end %>
+              </td></tr>
+            </table>
+          <% end %>
+
+          <!-- Items -->
+          <h2 style="margin:0 0 12px; font-size:16px;">Souhrn objednávky</h2>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin-bottom:16px;">
+            <% @order.order_items.each do |oi| %>
+              <tr>
+                <td style="padding:10px 0; border-top:1px solid #e2e8f0; font-size:14px;">
+                  <div><strong><%= oi.name_snapshot %></strong></div>
+                  <% if oi.sku_snapshot.present? %><div style="color:#64748b; font-size:12px; font-family:monospace;"><%= oi.sku_snapshot %></div><% end %>
+                  <div style="color:#94a3b8; font-size:12px;"><%= oi.quantity %> × <%= format_price_cents(oi.unit_price_cents) %></div>
+                </td>
+                <td style="padding:10px 0; border-top:1px solid #e2e8f0; text-align:right; font-size:14px; white-space:nowrap;"><%= format_price_cents(oi.line_total_cents) %></td>
+              </tr>
+            <% end %>
+            <tr><td style="padding:8px 0; border-top:1px solid #e2e8f0; font-size:14px;">Mezisoučet</td>
+                <td style="padding:8px 0; border-top:1px solid #e2e8f0; font-size:14px; text-align:right;"><%= format_price_cents(@order.subtotal_cents) %></td></tr>
+            <tr><td style="padding:4px 0; font-size:14px;">Doprava (<%= shipping_label %>)</td>
+                <td style="padding:4px 0; font-size:14px; text-align:right;"><%= format_price_cents(@order.shipping_cents) %></td></tr>
+            <tr><td style="padding:10px 0 0; font-size:16px; font-weight:bold; border-top:2px solid #0f172a;">Celkem</td>
+                <td style="padding:10px 0 0; font-size:18px; font-weight:bold; text-align:right; border-top:2px solid #0f172a;"><%= format_price_cents(@order.total_cents) %></td></tr>
+          </table>
+
+          <!-- Address & method -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+            <tr>
+              <td valign="top" width="50%" style="padding-right:8px; font-size:14px;">
+                <h3 style="margin:0 0 6px; font-size:14px;">Doručovací adresa</h3>
+                <% addr = @order.shipping_address.presence || @order.billing_address %>
+                <div style="color:#475569; line-height:1.5;">
+                  <%= [addr["first_name"], addr["last_name"]].compact_blank.join(" ") %><br>
+                  <% if addr["company"].present? %><%= addr["company"] %><br><% end %>
+                  <%= addr["street"] %><br>
+                  <%= [addr["postal_code"], addr["city"]].compact_blank.join(" ") %><br>
+                  <%= addr["country_code"] %>
+                </div>
+              </td>
+              <td valign="top" width="50%" style="padding-left:8px; font-size:14px;">
+                <h3 style="margin:0 0 6px; font-size:14px;">Doprava a platba</h3>
+                <div style="color:#475569; line-height:1.5;">
+                  <strong>Doprava:</strong> <%= shipping_label %><br>
+                  <strong>Platba:</strong> <%= payment_label %>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- CTA -->
+          <p style="text-align:center; margin:24px 0;">
+            <a href="<%= @confirmation_url %>" style="display:inline-block; background:#e11d48; color:#fff; text-decoration:none; padding:12px 24px; border-radius:9999px; font-weight:bold; font-size:14px;">Sledovat objednávku</a>
+          </p>
+
+          <p style="margin:0; color:#64748b; font-size:13px; line-height:1.5;">
+            Otázky? Napište nám na <a href="mailto:info@palkres.cz" style="color:#e11d48;">info@palkres.cz</a>.
+          </p>
+        </td></tr>
+
+        <tr><td style="background:#0f172a; color:#cbd5e1; padding:16px 24px; text-align:center; font-size:12px;">
+          © <%= Time.current.year %> Palkres s.r.o. — Výtvarné potřeby a papírnictví
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

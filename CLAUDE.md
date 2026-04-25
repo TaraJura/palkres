@@ -220,6 +220,23 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Confirmation e-mail + Czech QR-platba (SPAYD)
+- New `Payments::CzechQr` service (`app/services/payments/czech_qr.rb`) builds a SPAYD-1.0 payload (`SPD*1.0*ACC:<IBAN>*AM:…*CC:CZK*X-VS:…*MSG:…*RN:Palkres s.r.o.`) and renders an inline SVG via `rqrcode 3.0`. Standard scannable by Air Bank, ČS, KB, Raiffeisen, Fio etc.
+- Bank account configured via `.env`: `PALKRES_BANK_IBAN` (default `CZ6508000000192000145399` placeholder — **swap before going live with real Palkres IBAN**), `PALKRES_BANK_NAME`. `Payments::CzechQr.available?` guards against missing/invalid IBAN.
+- New `OrderMailer#confirmation(order_id)` (`app/mailers/order_mailer.rb`):
+  - Subject: `Potvrzení objednávky PK-… — Palkres`
+  - HTML + plain-text multipart layouts; QR SVG attached inline (`cid:payment-qr.svg`) for `bank_transfer` orders only
+  - Bcc copy to `ORDER_MAIL_BCC` (`info@palkres.cz` by default) so Palkres has the order in their inbox
+  - Reply-To set so customer replies go to `info@palkres.cz`, not the no-reply sender
+  - Renders the same status hero, line items, totals, addresses, and a tracking link to the public confirmation URL with token
+- `ApplicationMailer` now includes `helper ApplicationHelper` (mailers don't auto-pull view helpers; `format_price_cents` was undefined before).
+- Production SMTP wired in `config/environments/production.rb`: `delivery_method: :smtp` when `SMTP_HOST` is set (env vars `SMTP_HOST/PORT/USER/PASS/DOMAIN`); falls back to `:test` (no real send) when SMTP isn't configured. `default_url_options` reads `APP_HOST` so links in mail point at `https://palkres.techtools.cz/objednavka/…?token=…`.
+- `Storefront::CheckoutsController#create` now does `OrderMailer.confirmation(order.id).deliver_later` after wiping the cart. Goes through Solid Queue so checkout response is fast.
+- The on-page confirmation now also embeds the QR + payment details (IBAN, VS, amount, message) in an amber callout for `bank_transfer` orders. Mobile-friendly: stacks vertically on phones.
+- Verified end-to-end: SPAYD generated, mail rendered (HTML 7.7 KB, text 0.9 KB), inline SVG attached, BCC set, confirmation page now shows QR (`naskenujte QR`, IBAN, VS).
+
+**Operational TODO**: when Palkres provides real SMTP credentials, set `SMTP_HOST/PORT/USER/PASS/DOMAIN` in `/home/novakj/palkres-eshop/.env` and `sudo systemctl restart palkres-eshop.service`. Until then, mail "delivers" to `:test` (visible in `ActionMailer::Base.deliveries` in console, not actually sent).
+
 ### 2026-04-25 — Order confirmation / status page after checkout
 - Old behaviour: `Storefront::CheckoutsController#create` redirected to `account_order_path(order)`, which requires login. Guest checkout therefore landed on the login page after submitting — a confusing dead end.
 - New behaviour: every Order gets a random `confirmation_token` (`SecureRandom.urlsafe_base64(24)`, indexed unique). After `create`, redirect goes to a new public route `GET /objednavka/:number?token=…` (`Storefront::OrderConfirmationsController#show`) that authorizes via `secure_compare(token, order.confirmation_token)` OR `Current.user.id == order.user_id`. Without either, 404.
