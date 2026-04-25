@@ -119,6 +119,34 @@ Most Czech e-shop traffic is mobile. The phone breakpoint is the **default**, th
 
 When in doubt, *open the page on your phone first*. If the phone view feels cramped, broken, or hostile to touch, the change is not done.
 
+### 11. Document EVERY change in this CLAUDE.md — no exceptions
+Claude Code is the **architect and main developer** of this app. That role is not just a label — it carries the responsibility of keeping the project's institutional memory in this file. Every change to production (or to anything that ships to production) must leave a trail here.
+
+**The rule (binding for every Claude session and every human contributor)**:
+
+1. **Before** writing or modifying code that affects behavior, scan the relevant sections of this CLAUDE.md (Critical project rules, Data model, Key paths, Common commands).
+2. **After** the change ships (commit pushed, service restarted, smoke-tested), append an entry to **Post-launch change log** at the top of that section. Entry format:
+
+   ```markdown
+   ### YYYY-MM-DD — short imperative title
+   - What changed (user-visible) or what broke.
+   - Root cause (if a fix).
+   - Fix / implementation: file paths + a sentence per change.
+   - Side effects, follow-ups, or new TODOs.
+   ```
+
+3. **If the change introduces a new convention, dependency, model, endpoint, or operational step**, also update the relevant *non-log* section (Data model table, Key paths, Common commands, Critical project rules) — the change log explains *why*, the structured sections explain *how it works now*.
+
+4. **If the change is a one-off ops action** (db backfill, cache wipe, manual sync), still log it. Future-you needs to know it happened.
+
+5. **No "I'll document it later"**. The commit, the systemd restart, and the change-log entry are one atomic unit. Logging is not optional cleanup — it's part of the change.
+
+6. **Don't duplicate what git history already says**. Log the *intent*, *root cause*, and *gotchas* — those don't survive in a commit message. File paths and one-sentence summaries are enough; the diff has the rest.
+
+7. **If you skip this**, the next Claude session (or Jiří six months from now) will rediscover the same bug, redo the same backfill, or fight the same convention. That cost is on you.
+
+The change log is the **single source of truth for "what happened to Palkres"**. Git is secondary, journalctl is tertiary.
+
 ## Data model
 
 | Model | Key fields |
@@ -191,6 +219,11 @@ sudo journalctl -u palkres-eshop.service -f
 ## Post-launch change log
 
 Newest at top. Every non-trivial production change should append an entry here.
+
+### 2026-04-25 — Core rule 11: document every change in this file
+- Added Rule 11 to **Critical project rules**: every production change must leave a Post-launch change log entry, with intent + root cause + file-path summary + side effects. Architect/main-developer role (Claude Code under Jiří's direction) is named explicitly so the responsibility is unambiguous.
+- Strengthens the older "How to log a new change" section by making it a *binding rule* rather than a suggestion.
+- Reinforces existing rule that the change log is single source of truth for "what happened to Palkres" — git history and journalctl are secondary.
 
 ### 2026-04-25 — Core rule: mobile-first
 - Added "Rule 10: Mobile-first is non-negotiable" to **Critical project rules**. Every view, partial, and component must start at the phone breakpoint and *enhance* upward via `sm:`/`md:`/`lg:`. Tap targets ≥ 44×44 px, single-column by default, no hover-only actions, body text ≥ 14 px, Lighthouse mobile ≥ 85 perf / 95 a11y.
