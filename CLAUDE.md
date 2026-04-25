@@ -220,6 +220,12 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Real bank account wired (techtools s.r.o., ČS 0800)
+- Earlier change-log claimed `PALKRES_BANK_IBAN=CZ6508000000192000145399` was a placeholder. **Replaced with the real account from the ČS smlouva (26.5.2025): `6755089389/0800` → `CZ1908000000006755089389`**, beneficiary name `techtools s.r.o.` (NOT Palkres yet — Palkres will open its own once the e-shop is approved; until then payments flow to Techtools per Jiří).
+- IBAN check digits computed via ISO 13616 (`98 − ((bank ‖ prefix ‖ account ‖ encoded(country) ‖ 00) mod 97)`).
+- `Payments::CzechQr` gains `placeholder?` predicate; `available?` now also returns false when IBAN is one of the known placeholders, so the QR + SPAYD block won't render with a fake account if the env ever gets reverted.
+- Sample SPAYD verified: `SPD*1.0*ACC:CZ1908000000006755089389*AM:668.00*CC:CZK*X-VS:202604*MSG:Palkres PK-…*RN:techtools s.r.o.`
+
 ### 2026-04-25 — Checkout: Doprava + Platba split into separate sections
 - Old UX: shipping + payment options were mixed in a single 2-column grid under one "Doprava a platba" heading. Looked like 4 mutually-exclusive options instead of "pick one shipping AND one payment".
 - New UX (`app/views/storefront/checkouts/show.html.erb`): five numbered steps (Kontakt 1, Fakturační adresa 2, Způsob dopravy 3, Způsob platby 4, Poznámka 5) with rose number badges. Sections 3 and 4 are visually distinct: step 3 has rose-100 outline + rose number badge, step 4 has emerald-100 outline + emerald number badge — so the eye instantly groups them as separate decisions.
