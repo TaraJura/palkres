@@ -307,6 +307,20 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Home page conversion redesign
+- Old home: 4-block hero + flat category list + recent products + plain brand chips. No social proof, no reasons-to-buy, no big-ticket CTA, no funnel for B2B/wholesale.
+- New home (`app/views/storefront/home/show.html.erb` + `app/controllers/storefront/home_controller.rb`):
+  - **Hero**: live "Skladem 29 000+ produktů" pulse-dot pill, double-line headline with rose accent, dual CTA ("Prohlédnout katalog" + "Hledat produkt"), three trust microcopy (doručení 1–2 dny / bezpečná platba / 14 dní na vrácení), staggered 4-product image collage (right), decorative blurred blobs.
+  - **Trust strip**: 4 white cards with emoji icons (🚚 / 💳 / 🔄 / 🎨) — rychlé dodání, platba kartou i QR, 14denní vrácení, kvalitní značky.
+  - **Hlavní kategorie**: visual grid with per-category gradient backgrounds (rose, amber, emerald, sky, violet, pink) and emoji icons matched to category name (`/kresb/` → ✏️, `/malb/` → 🎨, etc.); bigger tap targets (`min-h-32`/`md:min-h-36`), hover scale on icon.
+  - **Novinky v sortimentu**: 8-product grid (was 12) with "Vše →" link to search.
+  - **Big CTA band** (slate→rose gradient, white text, decorative blob): "Velkoodběry & dealer ceny" pitch for B2B/schools, 4-bullet checklist (5 000 Kč threshold, individuální splatnost, personální podpora, 29 000 položek), two CTA buttons (mailto + browse catalog) — first conversion path beyond a single-customer purchase.
+  - **Brands**: chips now link directly to `search_path(q: brand_name)` so clicking Stabilo opens search results filtered to that manufacturer.
+  - **Stats footer**: 3 large rose numbers — products / categories / manufacturers — pulled live from new controller `@stats`.
+- Controller: added `@best_deals` scope (reserved for a future sale ribbon), `@stats` for the footer counters.
+- All copy Czech per Rule 11; mobile-first per Rule 10 (every section stacks vertically, hero CTAs become full-width on small screens, image collage drops the staggered offset).
+- `bin/rails assets:precompile` to ship new utilities (gradient utility variants, animate-pulse).
+
 ### 2026-04-25 — Documentation audit (this entry)
 - Refreshed the structured sections so they reflect everything that landed today and is in git (`cdc24f3` → `ccf92bb`):
   - **At-a-glance**: added GitHub repo SSH URL, live URL + TLS expiry, admin login + rotation command, the techtools IBAN currently used for QR-platba, and SMTP-not-yet-configured note. Listed all 7 production DBs (primary + 3 Solid).

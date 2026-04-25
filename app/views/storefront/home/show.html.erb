@@ -1,47 +1,198 @@
 <% content_for :title, "Palkres — výtvarné potřeby pro radost z tvorby" %>
 
-<section class="bg-gradient-to-br from-rose-100 via-white to-amber-50 rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center gap-10 shadow-sm">
-  <div class="flex-1">
-    <h1 class="text-4xl md:text-5xl font-bold leading-tight tracking-tight">Výtvarné potřeby<br><span class="text-rose-600">pro radost z tvorby</span></h1>
-    <p class="mt-4 text-lg text-slate-600 max-w-xl">Pastelky, fixy, barvy, papíry, bloky a pomůcky od kvalitních českých i zahraničních značek. Přehledný e-shop, rychlé dodání, férové ceny.</p>
-    <div class="mt-6 flex gap-3">
-      <%= link_to "Prohlédnout katalog", (@featured_categories.first ? category_path_for(@featured_categories.first) : "#"), class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 py-3 font-medium" %>
-      <%= link_to "Hledat",              search_path, class: "bg-white hover:bg-slate-100 border border-slate-200 rounded-full px-6 py-3" %>
+<%# ── HERO ─────────────────────────────────────────────────────────── %>
+<section class="relative bg-gradient-to-br from-rose-100 via-white to-amber-50 rounded-3xl p-6 md:p-12 lg:p-16 overflow-hidden">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center relative z-10">
+    <div>
+      <span class="inline-flex items-center gap-2 bg-white border border-rose-200 text-rose-700 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide">
+        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+        Skladem <%= number_with_delimiter(@stats[:products]) %>+ produktů
+      </span>
+      <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight tracking-tight mt-4">
+        Výtvarné potřeby<br>
+        <span class="text-rose-600">pro radost z tvorby</span>
+      </h1>
+      <p class="mt-4 text-base md:text-lg text-slate-600 max-w-xl leading-relaxed">
+        Pastelky, fixy, barvy, papíry, bloky a pomůcky od kvalitních českých i zahraničních značek.
+        Přehledný e-shop, rychlé dodání, férové ceny.
+      </p>
+      <div class="mt-6 flex flex-col sm:flex-row gap-3">
+        <%= link_to (@featured_categories.first ? category_path_for(@featured_categories.first) : "#"),
+                    class: "inline-flex items-center justify-center gap-2 min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-full px-6 py-3 font-semibold transition shadow-lg shadow-rose-200" do %>
+          Prohlédnout katalog
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        <% end %>
+        <%= link_to search_path,
+                    class: "inline-flex items-center justify-center gap-2 min-h-12 bg-white hover:bg-slate-50 border border-slate-200 rounded-full px-6 py-3 font-medium" do %>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Hledat produkt
+        <% end %>
+      </div>
+      <div class="mt-6 flex items-center gap-6 text-xs text-slate-500">
+        <div class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+          Doručení 1–2 dny
+        </div>
+        <div class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+          Bezpečná platba
+        </div>
+        <div class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+          14 dní na vrácení
+        </div>
+      </div>
+    </div>
+
+    <%# Image collage %>
+    <div class="grid grid-cols-2 gap-3 md:gap-4">
+      <% @recent_products.select { |p| p.primary_image_url }.first(4).each_with_index do |p, i| %>
+        <%= link_to product_path(slug: p.slug),
+                    class: "group bg-white rounded-2xl shadow-sm hover:shadow-lg p-3 transition relative overflow-hidden #{i.even? ? '' : 'lg:translate-y-6'}" do %>
+          <img src="<%= p.primary_image_url %>" alt="<%= p.name %>" class="w-full h-32 md:h-40 object-contain group-hover:scale-105 transition" loading="lazy">
+          <div class="mt-2 text-xs text-slate-500 line-clamp-1"><%= p.manufacturer&.name %></div>
+          <div class="text-xs font-semibold text-rose-600 mt-0.5"><%= format_price_cents(p.price_retail_cents) %></div>
+        <% end %>
+      <% end %>
     </div>
   </div>
-  <div class="flex-1 grid grid-cols-2 gap-3">
-    <% @recent_products.first(4).each do |p| %>
-      <% if p.primary_image_url %>
-        <div class="bg-white rounded-2xl shadow-sm p-2"><img src="<%= p.primary_image_url %>" alt="<%= p.name %>" class="w-full h-40 object-contain" loading="lazy"></div>
+  <div class="absolute -top-20 -right-20 w-72 h-72 bg-rose-200/30 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-20 -left-20 w-72 h-72 bg-amber-200/30 rounded-full blur-3xl pointer-events-none"></div>
+</section>
+
+<%# ── TRUST STRIP ──────────────────────────────────────────────────── %>
+<section class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+  <% [
+       { icon: "🚚", title: "Rychlé dodání",       sub: "Zásilkovna · Česká pošta" },
+       { icon: "💳", title: "Platba kartou i QR",  sub: "GoPay nebo bankovní QR" },
+       { icon: "🔄", title: "14 dní na vrácení",   sub: "Bez udání důvodu" },
+       { icon: "🎨", title: "Kvalitní značky",     sub: "Stabilo, Faber-Castell, Koh-i-noor…" }
+     ].each do |b| %>
+    <div class="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 flex items-start gap-3">
+      <div class="text-2xl md:text-3xl shrink-0" aria-hidden="true"><%= b[:icon] %></div>
+      <div class="min-w-0">
+        <div class="font-semibold text-sm md:text-base"><%= b[:title] %></div>
+        <div class="text-xs text-slate-500 mt-0.5"><%= b[:sub] %></div>
+      </div>
+    </div>
+  <% end %>
+</section>
+
+<%# ── CATEGORY GRID (visual, with mood backgrounds) ───────────────── %>
+<section class="mt-10 md:mt-12">
+  <div class="flex items-end justify-between mb-4 md:mb-5">
+    <div>
+      <h2 class="text-xl md:text-2xl font-bold">Hlavní kategorie</h2>
+      <p class="text-sm text-slate-500 mt-0.5">Vyberte si oblast, ve které tvoříte.</p>
+    </div>
+  </div>
+  <%
+    cat_styles = [
+      "from-rose-100 to-rose-200",
+      "from-amber-100 to-amber-200",
+      "from-emerald-100 to-emerald-200",
+      "from-sky-100 to-sky-200",
+      "from-violet-100 to-violet-200",
+      "from-pink-100 to-pink-200"
+    ]
+  %>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+    <% @featured_categories.each_with_index do |c, i| %>
+      <%= link_to category_path_for(c),
+                  class: "group relative bg-gradient-to-br #{cat_styles[i % cat_styles.length]} rounded-2xl p-4 md:p-5 min-h-32 md:min-h-36 flex flex-col justify-between overflow-hidden hover:shadow-lg transition" do %>
+        <div class="text-3xl md:text-4xl opacity-60 group-hover:scale-110 transition">
+          <% case c.name.downcase
+             when /kresb/ %>✏️<% when /malb/ %>🎨<% when /papír/ %>📄<% when /grafik/ %>🖼️<% when /keram/ %>🏺<% when /tvoř|tvor/ %>✂️<% else %>🎯<% end %>
+        </div>
+        <div>
+          <div class="font-semibold text-base md:text-lg leading-tight"><%= c.name %></div>
+          <div class="text-xs text-slate-700 mt-1"><%= number_with_delimiter(c.products_count) %> produktů →</div>
+        </div>
       <% end %>
     <% end %>
   </div>
 </section>
 
-<section class="mt-10">
-  <h2 class="text-2xl font-semibold mb-4">Hlavní kategorie</h2>
-  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-    <% @featured_categories.each do |c| %>
-      <%= link_to category_path_for(c), class: "block bg-white hover:bg-rose-50 border border-slate-200 rounded-xl p-4 text-sm font-medium text-center hover:border-rose-300" do %>
-        <%= c.name %>
-        <div class="text-xs text-slate-500 mt-1"><%= c.products_count %> produktů</div>
-      <% end %>
-    <% end %>
+<%# ── FEATURED PRODUCTS ───────────────────────────────────────────── %>
+<section class="mt-10 md:mt-12">
+  <div class="flex items-end justify-between mb-4 md:mb-5 gap-3 flex-wrap">
+    <div>
+      <h2 class="text-xl md:text-2xl font-bold">Novinky v sortimentu</h2>
+      <p class="text-sm text-slate-500 mt-0.5">Čerstvě naskladněné produkty.</p>
+    </div>
+    <%= link_to "Vše →", search_path, class: "text-sm text-rose-600 hover:underline font-medium" %>
   </div>
-</section>
-
-<section class="mt-10">
-  <h2 class="text-2xl font-semibold mb-4">Nejnovější produkty</h2>
-  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
     <%= render partial: "storefront/products/card", collection: @recent_products, as: :product %>
   </div>
 </section>
 
-<section class="mt-10">
-  <h2 class="text-2xl font-semibold mb-4">Značky</h2>
-  <div class="flex flex-wrap gap-2">
+<%# ── BIG CTA BAND ────────────────────────────────────────────────── %>
+<section class="mt-10 md:mt-12 bg-gradient-to-br from-slate-900 via-slate-800 to-rose-900 text-white rounded-3xl p-6 md:p-12 relative overflow-hidden">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-center relative z-10">
+    <div>
+      <div class="text-xs uppercase tracking-widest text-rose-300 mb-3">Pro školy a firmy</div>
+      <h2 class="text-2xl md:text-3xl font-bold leading-tight">Velkoodběry &amp; dealer ceny</h2>
+      <p class="mt-3 text-slate-200 leading-relaxed">
+        Tvoříte v atelieru nebo zásobujete školu? Zaregistrujte se a získejte přístup k velkoobchodním cenám
+        a individuálním fakturačním podmínkám.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        <%= link_to "Kontaktujte nás", "mailto:info@palkres.cz",
+                    class: "inline-flex items-center min-h-12 bg-white text-slate-900 hover:bg-rose-50 rounded-full px-6 py-3 font-semibold" %>
+        <%= link_to "Prohlédnout katalog", (@featured_categories.first ? category_path_for(@featured_categories.first) : "#"),
+                    class: "inline-flex items-center min-h-12 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-full px-6 py-3 font-medium" %>
+      </div>
+    </div>
+    <ul class="space-y-3">
+      <% [
+           "Velkoobchodní ceny u objednávek nad 5 000 Kč",
+           "Individuální splatnost faktur",
+           "Personální podpora na e-mailu i telefonu",
+           "Sortiment přes 29 000 položek od ARTIKON s.r.o."
+         ].each do |line| %>
+        <li class="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
+          <svg class="w-5 h-5 mt-0.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+          <span class="text-sm md:text-base"><%= line %></span>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+  <div class="absolute -top-32 -right-32 w-80 h-80 bg-rose-500/20 rounded-full blur-3xl"></div>
+</section>
+
+<%# ── BRANDS ──────────────────────────────────────────────────────── %>
+<section class="mt-10 md:mt-12">
+  <div class="flex items-end justify-between mb-4 md:mb-5">
+    <div>
+      <h2 class="text-xl md:text-2xl font-bold">Značky, kterým věříme</h2>
+      <p class="text-sm text-slate-500 mt-0.5">Vybíráme jen ověřené dodavatele.</p>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2 md:gap-3">
     <% @popular_manufacturers.each do |m| %>
-      <span class="bg-white border border-slate-200 rounded-full px-3 py-1 text-sm"><%= m.name %></span>
+      <%= link_to search_path(q: m.name),
+                  class: "inline-flex items-center min-h-9 bg-white hover:bg-rose-50 hover:text-rose-700 border border-slate-200 hover:border-rose-300 rounded-full px-4 text-sm font-medium transition" do %>
+        <%= m.name %>
+      <% end %>
     <% end %>
+  </div>
+</section>
+
+<%# ── FINAL TRUST / FAQ-ish ───────────────────────────────────────── %>
+<section class="mt-10 md:mt-12 bg-white border border-slate-200 rounded-3xl p-6 md:p-10">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 text-center">
+    <div>
+      <div class="text-3xl md:text-4xl font-bold text-rose-600"><%= number_with_delimiter(@stats[:products]) %>+</div>
+      <div class="text-sm text-slate-500 mt-1">aktivních produktů</div>
+    </div>
+    <div>
+      <div class="text-3xl md:text-4xl font-bold text-rose-600"><%= @stats[:categories] %></div>
+      <div class="text-sm text-slate-500 mt-1">kategorií sortimentu</div>
+    </div>
+    <div>
+      <div class="text-3xl md:text-4xl font-bold text-rose-600"><%= @stats[:manufacturers] %></div>
+      <div class="text-sm text-slate-500 mt-1">značek od českých i zahraničních dodavatelů</div>
+    </div>
   </div>
 </section>
