@@ -1,0 +1,29 @@
+<%
+  nav = [
+    { label: "Přehled",     path: admin_root_path,        icon: "🏠", match: %r{\A/admin\z} },
+    { label: "Produkty",    path: admin_products_path,    icon: "📦", match: %r{\A/admin/products} },
+    { label: "Objednávky",  path: admin_orders_path,      icon: "🧾", match: %r{\A/admin/orders} },
+    { label: "Syncy feedu", path: admin_sync_runs_path,   icon: "🔄", match: %r{\A/admin/sync_runs} }
+  ]
+%>
+<% nav.each do |item|
+     active = request.path.match?(item[:match])
+     css = active ? "bg-rose-600 text-white" : "text-slate-200 hover:bg-slate-800"
+%>
+  <%= link_to item[:path], class: "flex items-center gap-3 px-3 py-2.5 rounded-lg transition #{css}" do %>
+    <span class="text-base" aria-hidden="true"><%= item[:icon] %></span>
+    <span class="font-medium"><%= item[:label] %></span>
+  <% end %>
+<% end %>
+<div class="border-t border-slate-800 pt-2 mt-2">
+  <%= link_to root_path, class: "flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-200" do %>
+    <span aria-hidden="true">↗</span>
+    <span class="text-sm">Přejít na e-shop</span>
+  <% end %>
+  <%= button_to session_path, method: :delete,
+                class: "w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-200",
+                form_class: "block" do %>
+    <span aria-hidden="true">⏻</span>
+    <span class="text-sm">Odhlásit</span>
+  <% end %>
+</div>

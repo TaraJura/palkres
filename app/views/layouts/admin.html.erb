@@ -3,26 +3,51 @@
   <head>
     <title>Admin — Palkres</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#0f172a">
     <%= csrf_meta_tags %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body class="bg-slate-100 min-h-screen flex">
-    <aside class="w-60 bg-slate-900 text-slate-200 min-h-screen p-4">
-      <div class="text-white font-bold text-lg mb-6">Palkres Admin</div>
-      <nav class="space-y-1 text-sm">
-        <%= link_to "Přehled",     admin_root_path,        class: "block px-3 py-2 rounded hover:bg-slate-800" %>
-        <%= link_to "Produkty",    admin_products_path,    class: "block px-3 py-2 rounded hover:bg-slate-800" %>
-        <%= link_to "Objednávky",  admin_orders_path,      class: "block px-3 py-2 rounded hover:bg-slate-800" %>
-        <%= link_to "Syncy feedu", admin_sync_runs_path,   class: "block px-3 py-2 rounded hover:bg-slate-800" %>
-        <div class="border-t border-slate-800 mt-4 pt-4">
-          <%= link_to "← Zpět na e-shop", root_path, class: "block px-3 py-2 rounded hover:bg-slate-800" %>
-        </div>
+  <body class="bg-slate-100 min-h-screen lg:flex">
+    <%# Mobile top bar %>
+    <header class="lg:hidden bg-slate-900 text-white sticky top-0 z-30">
+      <div class="flex items-center justify-between px-4 py-3">
+        <div class="font-bold tracking-tight">Palkres <span class="text-slate-400 font-normal text-sm">admin</span></div>
+        <details class="relative">
+          <summary class="list-none cursor-pointer w-10 h-10 inline-flex items-center justify-center rounded-lg hover:bg-slate-800">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </summary>
+          <nav class="absolute right-0 mt-2 bg-slate-900 rounded-xl shadow-2xl py-2 min-w-56 border border-slate-700">
+            <%= render "admin/shared/nav_links" %>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <%# Desktop sidebar %>
+    <aside class="hidden lg:flex flex-col w-60 bg-slate-900 text-slate-200 min-h-screen p-4 sticky top-0 self-start">
+      <%= link_to admin_root_path, class: "flex items-baseline gap-2 mb-6 group" do %>
+        <span class="text-white font-bold text-xl tracking-tight group-hover:text-rose-400 transition">Palkres</span>
+        <span class="text-slate-500 text-sm">admin</span>
+      <% end %>
+      <nav class="space-y-0.5 text-sm flex-1">
+        <%= render "admin/shared/nav_links" %>
       </nav>
+      <div class="border-t border-slate-800 pt-3 mt-3 text-xs text-slate-500">
+        Přihlášen: <strong class="text-slate-300"><%= Current.user&.email_address %></strong>
+      </div>
     </aside>
-    <main class="flex-1 p-6">
-      <% if flash[:notice] %><div class="mb-4 bg-emerald-100 border border-emerald-300 text-emerald-800 px-4 py-2 rounded"><%= flash[:notice] %></div><% end %>
-      <% if flash[:alert]  %><div class="mb-4 bg-rose-100    border border-rose-300    text-rose-800    px-4 py-2 rounded"><%= flash[:alert]  %></div><% end %>
+
+    <main class="flex-1 p-4 md:p-6 lg:p-8 min-w-0">
+      <% if flash[:notice] %>
+        <div class="mb-4 bg-emerald-100 border border-emerald-300 text-emerald-800 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+          <%= flash[:notice] %>
+        </div>
+      <% end %>
+      <% if flash[:alert] %>
+        <div class="mb-4 bg-rose-100 border border-rose-300 text-rose-800 px-4 py-3 rounded-xl text-sm"><%= flash[:alert] %></div>
+      <% end %>
       <%= yield %>
     </main>
   </body>

@@ -1,10 +1,102 @@
-<h1 class="text-2xl font-bold mb-6">Přehled</h1>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Produkty celkem</div><div class="text-3xl font-bold"><%= @products_total %></div></div>
-  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Aktivní produkty</div><div class="text-3xl font-bold text-emerald-600"><%= @products_active %></div></div>
-  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Nové objednávky</div><div class="text-3xl font-bold text-rose-600"><%= @orders_pending %></div></div>
-  <div class="bg-white rounded-xl p-5 border border-slate-200"><div class="text-sm text-slate-500">Poslední sync</div><div class="text-sm"><%= @last_sync ? "#{@last_sync.status} · #{@last_sync.started_at.strftime('%d. %m. %H:%M')}" : "—" %></div></div>
+<div class="flex items-end justify-between mb-6 gap-3 flex-wrap">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-bold">Přehled</h1>
+    <p class="text-sm text-slate-500 mt-1"><%= Date.current.strftime("%A, %-d. %-m. %Y") %></p>
+  </div>
+  <%= button_to "▶ Spustit sync ARTIKON feedu", run_now_admin_sync_runs_path, method: :post,
+                class: "min-h-11 inline-flex items-center bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-full px-5 py-2.5 font-medium text-sm" %>
 </div>
-<div class="mt-8">
-  <%= button_to "Spustit sync ARTIKON feedu", run_now_admin_sync_runs_path, method: :post, class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-5 py-2" %>
+
+<%# ── KPI cards ─────────────────────────────────────────────── %>
+<%
+  cards = [
+    { label: "Produkty", value: @products_total, sub: "#{@products_active} aktivních", color: "rose", path: admin_products_path },
+    { label: "Top sellers", value: @products_topseller, sub: "ručně označených", color: "amber", path: admin_products_path(filter: "topseller") },
+    { label: "Bez obrázku", value: @products_no_image, sub: "vyžadují pozornost", color: "slate", path: admin_products_path(filter: "no_image") },
+    { label: "Nové objednávky", value: @orders_placed, sub: "čekají na zpracování", color: "emerald", path: admin_orders_path(status: "placed") }
+  ]
+%>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+  <% cards.each do |c| %>
+    <%= link_to c[:path], class: "block bg-white rounded-xl p-4 md:p-5 border border-slate-200 hover:border-#{c[:color]}-300 hover:shadow-sm transition" do %>
+      <div class="text-xs uppercase tracking-wide text-slate-500"><%= c[:label] %></div>
+      <div class="text-2xl md:text-3xl font-bold mt-1 text-<%= c[:color] %>-600"><%= number_with_delimiter(c[:value]) %></div>
+      <div class="text-xs text-slate-400 mt-1"><%= c[:sub] %></div>
+    <% end %>
+  <% end %>
+</div>
+
+<%# ── Revenue widget ───────────────────────────────────────── %>
+<section class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+  <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-xl p-5 md:p-6">
+    <div class="text-xs uppercase tracking-wide opacity-75">Tržby (zaplaceno)</div>
+    <div class="text-3xl md:text-4xl font-bold mt-1"><%= format_price_cents(@revenue_paid_cents) %></div>
+    <div class="text-sm opacity-75 mt-1">Celkem za všechny objednávky</div>
+  </div>
+  <div class="bg-gradient-to-br from-amber-400 to-amber-600 text-white rounded-xl p-5 md:p-6">
+    <div class="text-xs uppercase tracking-wide opacity-75">Čeká na platbu</div>
+    <div class="text-3xl md:text-4xl font-bold mt-1"><%= format_price_cents(@revenue_pending_cents) %></div>
+    <div class="text-sm opacity-75 mt-1">Hodnota objednávek pending</div>
+  </div>
+</section>
+
+<%# ── Two-column: recent orders + sync history ─────────────── %>
+<div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+  <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100">
+      <h2 class="font-semibold">Poslední objednávky</h2>
+      <%= link_to "Vše →", admin_orders_path, class: "text-sm text-rose-600 hover:underline" %>
+    </div>
+    <% if @recent_orders.any? %>
+      <ul class="divide-y divide-slate-100 text-sm">
+        <% @recent_orders.each do |o| %>
+          <li class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50">
+            <div class="min-w-0">
+              <%= link_to o.number, admin_order_path(o), class: "font-mono text-rose-600 hover:underline" %>
+              <div class="text-xs text-slate-500 truncate"><%= o.email %> · <%= o.created_at.strftime("%-d. %-m. %H:%M") %></div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="text-xs px-2 py-0.5 rounded-full <%= status_badge_class(o.status) %>"><%= o.status %></span>
+              <div class="font-semibold"><%= format_price_cents(o.total_cents) %></div>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <div class="p-8 text-center text-slate-400 text-sm">Zatím žádné objednávky.</div>
+    <% end %>
+  </section>
+
+  <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100">
+      <h2 class="font-semibold">ARTIKON feed</h2>
+      <%= link_to "Historie →", admin_sync_runs_path, class: "text-sm text-rose-600 hover:underline" %>
+    </div>
+    <% if @last_sync %>
+      <div class="p-4 border-b border-slate-100 text-sm">
+        <div class="flex items-baseline justify-between gap-2 flex-wrap">
+          <div>
+            <strong>Poslední sync:</strong> <%= @last_sync.started_at.strftime("%-d. %-m. %Y %H:%M") %>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded-full <%= sync_status_badge_class(@last_sync.status) %>"><%= @last_sync.status %></span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1">
+          seen <%= @last_sync.items_seen %> · created <%= @last_sync.items_created %> · updated <%= @last_sync.items_updated %> · deactivated <%= @last_sync.items_deactivated %><% if @last_sync.duration_seconds %> · <%= @last_sync.duration_seconds %> s<% end %>
+        </div>
+      </div>
+    <% end %>
+    <% if @recent_syncs.any? %>
+      <ul class="divide-y divide-slate-100 text-xs">
+        <% @recent_syncs.each do |s| %>
+          <li class="p-3 flex items-center justify-between gap-3 hover:bg-slate-50">
+            <%= link_to admin_sync_run_path(s), class: "min-w-0 flex-1" do %>
+              <div class="text-slate-700"><%= s.started_at.strftime("%-d. %-m. %H:%M") %></div>
+              <div class="text-slate-400 truncate"><%= s.items_seen %>/<%= s.items_created %>+/<%= s.items_updated %>~/<%= s.items_deactivated %>−</div>
+            <% end %>
+            <span class="px-2 py-0.5 rounded-full <%= sync_status_badge_class(s.status) %>"><%= s.status %></span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </section>
 </div>

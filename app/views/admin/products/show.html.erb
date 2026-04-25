@@ -1,21 +1,149 @@
-<h1 class="text-2xl font-bold mb-2"><%= @product.name %></h1>
-<p class="text-slate-500 mb-6 font-mono"><%= @product.artikon_id %> · SKU <%= @product.sku %></p>
+<div class="mb-5">
+  <%= link_to "← Zpět na produkty", admin_products_path, class: "text-sm text-slate-500 hover:text-rose-600" %>
+</div>
 
-<div class="grid grid-cols-[240px_1fr] gap-6">
-  <% if @product.primary_image_url %>
-    <img src="<%= @product.primary_image_url %>" class="w-full border border-slate-200 rounded-xl">
-  <% end %>
-  <div class="space-y-3">
-    <div>Výrobce: <strong><%= @product.manufacturer&.name || "—" %></strong></div>
-    <div>Cena s DPH: <strong><%= format_price_cents(@product.price_retail_cents) %></strong></div>
-    <div>Cena bez DPH: <strong><%= format_price_cents(@product.price_wo_tax_cents) %></strong></div>
-    <div>Cena dealer: <strong><%= format_price_cents(@product.price_dealer_cents) %></strong></div>
-    <div>Sklad: <strong><%= @product.stock_amount %></strong> · dostupnost: <%= @product.availability_label %></div>
-    <div>Dodavatel: <%= link_to @product.supplier_url, @product.supplier_url, class: "text-rose-600 underline", target: "_blank" if @product.supplier_url %></div>
-    <%= form_with model: @product, url: admin_product_path(@product), method: :patch, class: "mt-4 space-y-2" do |f| %>
-      <label class="flex items-center gap-2"><%= f.check_box :active %> Aktivní</label>
-      <label class="flex items-center gap-2"><%= f.check_box :topseller %> Top seller</label>
-      <%= f.submit "Uložit", class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-4 py-2" %>
+<div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 md:gap-6">
+  <%# ── Image + meta sidebar ─────────────────────────── %>
+  <aside class="space-y-4">
+    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div class="aspect-square bg-slate-50 flex items-center justify-center p-4">
+        <% if @product.primary_image_url %>
+          <img src="<%= @product.primary_image_url %>" alt="<%= @product.name %>" class="max-w-full max-h-full object-contain">
+        <% else %>
+          <div class="text-slate-300 text-6xl">⋯</div>
+        <% end %>
+      </div>
+      <% if @product.product_images.size > 1 %>
+        <div class="p-3 grid grid-cols-4 gap-2 border-t border-slate-100">
+          <% @product.product_images.first(8).each do |img| %>
+            <div class="aspect-square bg-slate-50 rounded overflow-hidden flex items-center justify-center">
+              <img src="<%= img.url %>" alt="" class="max-w-full max-h-full object-contain" loading="lazy">
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <%= form_with model: @product, url: admin_product_path(@product), method: :patch,
+                  local: true, class: "bg-white border border-slate-200 rounded-xl p-4 space-y-3" do |f| %>
+      <h3 class="font-semibold text-sm">Rychlé akce</h3>
+      <label class="flex items-center gap-2 cursor-pointer min-h-9">
+        <%= f.check_box :active, class: "w-5 h-5 rounded text-rose-600 focus:ring-rose-400" %>
+        <span class="text-sm">Aktivní (viditelný v e-shopu)</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer min-h-9">
+        <%= f.check_box :topseller, class: "w-5 h-5 rounded text-amber-600 focus:ring-amber-400" %>
+        <span class="text-sm">Top seller (homepage)</span>
+      </label>
+      <%= f.submit "Uložit", class: "w-full min-h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-medium cursor-pointer" %>
     <% end %>
-  </div>
+
+    <% if @product.supplier_url.present? %>
+      <%= link_to "↗ Otevřít na ARTIKON", @product.supplier_url, target: "_blank", rel: "noopener",
+                  class: "block min-h-11 inline-flex items-center justify-center w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-full px-4 text-sm" %>
+    <% end %>
+    <%= link_to "↗ Otevřít v e-shopu", product_path(slug: @product.slug), target: "_blank",
+                class: "block min-h-11 inline-flex items-center justify-center w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-full px-4 text-sm" %>
+  </aside>
+
+  <%# ── Main pane ────────────────────────────────────── %>
+  <main class="space-y-5">
+    <header class="bg-white border border-slate-200 rounded-xl p-5 md:p-6">
+      <div class="flex items-baseline justify-between flex-wrap gap-2">
+        <div class="min-w-0">
+          <% if @product.manufacturer %>
+            <div class="text-xs uppercase tracking-wide text-slate-400 font-semibold"><%= @product.manufacturer.name %></div>
+          <% end %>
+          <h1 class="text-xl md:text-2xl font-bold mt-1 leading-snug"><%= @product.name %></h1>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <% if @product.active? %>
+            <span class="text-xs bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5">aktivní</span>
+          <% else %>
+            <span class="text-xs bg-slate-100 text-slate-700 rounded-full px-2 py-0.5">neaktivní</span>
+          <% end %>
+          <% if @product.topseller? %>
+            <span class="text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-0.5">top seller</span>
+          <% end %>
+          <% if @product.stock_amount.to_i <= 0 %>
+            <span class="text-xs bg-rose-100 text-rose-700 rounded-full px-2 py-0.5">není sklad</span>
+          <% end %>
+        </div>
+      </div>
+
+      <dl class="mt-5 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">ARTIKON ID</dt>
+          <dd class="font-mono mt-0.5 break-all"><%= @product.artikon_id %></dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">SKU</dt>
+          <dd class="font-mono mt-0.5"><%= @product.sku || "—" %></dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">EAN</dt>
+          <dd class="font-mono mt-0.5"><%= @product.ean || "—" %></dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">Sklad</dt>
+          <dd class="mt-0.5 font-semibold <%= @product.stock_amount.to_i > 0 ? 'text-emerald-700' : 'text-rose-600' %>"><%= @product.stock_amount %> ks</dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">Hmotnost</dt>
+          <dd class="mt-0.5"><%= @product.weight_kg.to_f %> kg</dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">Naposledy synchronizováno</dt>
+          <dd class="mt-0.5"><%= @product.synced_at&.strftime("%-d. %-m. %Y %H:%M") || "—" %></dd>
+        </div>
+      </dl>
+    </header>
+
+    <%# ── Pricing card ─────────────────────────────────── %>
+    <section class="bg-white border border-slate-200 rounded-xl p-5 md:p-6">
+      <h2 class="font-semibold mb-4">Ceny</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="bg-rose-50 rounded-lg p-4">
+          <div class="text-xs uppercase tracking-wide text-rose-600">S DPH (běžný zákazník)</div>
+          <div class="text-2xl font-bold mt-1"><%= format_price_cents(@product.price_retail_cents) %></div>
+        </div>
+        <div class="bg-slate-50 rounded-lg p-4">
+          <div class="text-xs uppercase tracking-wide text-slate-500">Bez DPH</div>
+          <div class="text-2xl font-bold mt-1"><%= format_price_cents(@product.price_wo_tax_cents) %></div>
+          <div class="text-xs text-slate-400 mt-1">DPH <%= @product.tax_rate %>%</div>
+        </div>
+        <div class="bg-amber-50 rounded-lg p-4">
+          <div class="text-xs uppercase tracking-wide text-amber-700">Dealer</div>
+          <div class="text-2xl font-bold mt-1"><%= format_price_cents(@product.price_dealer_cents) %></div>
+        </div>
+      </div>
+    </section>
+
+    <%# ── Categories ───────────────────────────────────── %>
+    <section class="bg-white border border-slate-200 rounded-xl p-5 md:p-6">
+      <h2 class="font-semibold mb-3">Kategorie</h2>
+      <% if @product.categories.any? %>
+        <div class="flex flex-wrap gap-2">
+          <% @product.categories.each do |c| %>
+            <%= link_to c.external_path || c.name, category_path_for(c), target: "_blank",
+                        class: "text-xs bg-slate-100 hover:bg-rose-100 rounded-full px-3 py-1.5" %>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-sm text-slate-400">Bez kategorií.</p>
+      <% end %>
+    </section>
+
+    <%# ── Description ─────────────────────────────────── %>
+    <% if @product.description_html.present? || @product.description_short.present? %>
+      <section class="bg-white border border-slate-200 rounded-xl p-5 md:p-6">
+        <h2 class="font-semibold mb-3">Popis (z feedu)</h2>
+        <div class="prose prose-sm max-w-none text-slate-700">
+          <%= sanitize(@product.description_html.presence || @product.description_short.to_s,
+                       tags: %w[p br strong em ul ol li span h2 h3 h4 a],
+                       attributes: %w[href]) %>
+        </div>
+      </section>
+    <% end %>
+  </main>
 </div>

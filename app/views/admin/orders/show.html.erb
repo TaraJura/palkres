@@ -1,23 +1,123 @@
-<h1 class="text-2xl font-bold mb-2">Objednávka <span class="font-mono"><%= @order.number %></span></h1>
-<p class="text-slate-500 mb-4"><%= @order.email %> · <%= @order.created_at.strftime("%d. %m. %Y %H:%M") %></p>
-
-<div class="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-  <h2 class="font-semibold mb-3">Položky</h2>
-  <table class="w-full text-sm">
-    <% @order.order_items.each do |oi| %>
-      <tr class="border-b border-slate-100"><td class="py-2"><%= oi.name_snapshot %></td><td class="py-2 text-center"><%= oi.quantity %> ks</td><td class="py-2 text-right"><%= format_price_cents(oi.line_total_cents) %></td></tr>
-    <% end %>
-    <tr><td colspan="2" class="py-2 text-right font-semibold">Doprava</td><td class="py-2 text-right"><%= format_price_cents(@order.shipping_cents) %></td></tr>
-    <tr><td colspan="2" class="py-2 text-right font-bold">Celkem</td><td class="py-2 text-right text-lg font-bold"><%= format_price_cents(@order.total_cents) %></td></tr>
-  </table>
+<div class="mb-5">
+  <%= link_to "← Zpět na objednávky", admin_orders_path, class: "text-sm text-slate-500 hover:text-rose-600" %>
 </div>
 
-<div class="bg-white rounded-xl border border-slate-200 p-6">
-  <h2 class="font-semibold mb-3">Stavy</h2>
-  <%= form_with model: @order, url: admin_order_path(@order), method: :patch, class: "grid grid-cols-3 gap-3" do |f| %>
-    <label>Stav <%= f.select :status,         Order.statuses.keys.map { |k| [k, k] },        {}, class: "w-full border border-slate-200 rounded px-3 py-2" %></label>
-    <label>Platba <%= f.select :payment_state, Order.payment_states.keys.map { |k| [k, k] }, {}, class: "w-full border border-slate-200 rounded px-3 py-2" %></label>
-    <label>Doprava <%= f.select :shipping_state, Order.shipping_states.keys.map { |k| [k, k] }, {}, class: "w-full border border-slate-200 rounded px-3 py-2" %></label>
-    <div class="col-span-3"><%= f.submit "Uložit", class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-5 py-2" %></div>
-  <% end %>
+<header class="bg-white border border-slate-200 rounded-xl p-5 md:p-6 mb-5">
+  <div class="flex items-baseline justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl md:text-2xl font-bold">
+        <span class="font-mono"><%= @order.number %></span>
+      </h1>
+      <p class="text-sm text-slate-500 mt-1"><%= @order.created_at.strftime("%A, %-d. %-m. %Y, %H:%M") %></p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs px-2.5 py-1 rounded-full <%= status_badge_class(@order.status) %>"><%= @order.status %></span>
+      <span class="text-xs px-2.5 py-1 rounded-full <%= payment_badge_class(@order.payment_state) %>"><%= @order.payment_state %></span>
+    </div>
+  </div>
+</header>
+
+<div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 md:gap-6">
+  <main class="space-y-5">
+    <%# Items %>
+    <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <h2 class="font-semibold p-4 md:p-5 pb-3 border-b border-slate-100">Položky</h2>
+      <div class="divide-y divide-slate-100">
+        <% @order.order_items.each do |oi| %>
+          <div class="p-4 md:p-5 flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <div class="font-medium line-clamp-2"><%= oi.name_snapshot %></div>
+              <div class="text-xs text-slate-500 font-mono"><%= oi.sku_snapshot %></div>
+              <div class="text-xs text-slate-400 mt-0.5"><%= oi.quantity %> × <%= format_price_cents(oi.unit_price_cents) %></div>
+            </div>
+            <div class="font-semibold whitespace-nowrap shrink-0"><%= format_price_cents(oi.line_total_cents) %></div>
+          </div>
+        <% end %>
+      </div>
+      <div class="bg-slate-50 px-4 md:px-5 py-4 space-y-1 text-sm">
+        <div class="flex justify-between"><span>Mezisoučet</span><span><%= format_price_cents(@order.subtotal_cents) %></span></div>
+        <div class="flex justify-between text-slate-500"><span>Doprava</span><span><%= format_price_cents(@order.shipping_cents) %></span></div>
+        <div class="flex justify-between font-bold text-base md:text-lg pt-2 border-t border-slate-200 mt-2"><span>Celkem</span><span><%= format_price_cents(@order.total_cents) %></span></div>
+      </div>
+    </section>
+
+    <%# Addresses %>
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-5">
+        <h3 class="text-xs uppercase tracking-wide text-slate-500 mb-2">Fakturační adresa</h3>
+        <% addr = @order.billing_address %>
+        <div class="text-sm text-slate-700 leading-relaxed">
+          <%= [addr["first_name"], addr["last_name"]].compact_blank.join(" ") %><br>
+          <% if addr["company"].present? %><%= addr["company"] %><br><% end %>
+          <% if addr["ico"].present?     %>IČO: <%= addr["ico"] %><br><% end %>
+          <% if addr["dic"].present?     %>DIČ: <%= addr["dic"] %><br><% end %>
+          <%= addr["street"] %><br>
+          <%= [addr["postal_code"], addr["city"]].compact_blank.join(" ") %><br>
+          <%= addr["country_code"] %>
+        </div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-5">
+        <h3 class="text-xs uppercase tracking-wide text-slate-500 mb-2">Doručovací adresa</h3>
+        <% addr = @order.shipping_address.presence || @order.billing_address %>
+        <div class="text-sm text-slate-700 leading-relaxed">
+          <%= [addr["first_name"], addr["last_name"]].compact_blank.join(" ") %><br>
+          <%= addr["street"] %><br>
+          <%= [addr["postal_code"], addr["city"]].compact_blank.join(" ") %><br>
+          <%= addr["country_code"] %>
+        </div>
+      </div>
+    </section>
+
+    <% if @order.notes.present? %>
+      <section class="bg-amber-50 border border-amber-200 rounded-xl p-5">
+        <h3 class="text-xs uppercase tracking-wide text-amber-800 mb-2">Poznámka zákazníka</h3>
+        <p class="text-sm text-amber-900 whitespace-pre-wrap"><%= @order.notes %></p>
+      </section>
+    <% end %>
+  </main>
+
+  <%# Sidebar %>
+  <aside class="space-y-4 lg:sticky lg:top-6 self-start">
+    <section class="bg-white border border-slate-200 rounded-xl p-5">
+      <h3 class="text-xs uppercase tracking-wide text-slate-500 mb-3">Zákazník</h3>
+      <div class="text-sm space-y-1">
+        <div class="font-medium"><%= @order.email %></div>
+        <% if @order.phone.present? %><div class="text-slate-500"><%= @order.phone %></div><% end %>
+      </div>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-5">
+      <h3 class="text-xs uppercase tracking-wide text-slate-500 mb-3">Doprava a platba</h3>
+      <dl class="text-sm space-y-2">
+        <div><dt class="text-slate-500">Doprava</dt><dd class="font-medium"><%= @order.shipping_method&.humanize || "—" %></dd></div>
+        <div><dt class="text-slate-500">Platba</dt><dd class="font-medium"><%= @order.payment_method&.humanize || "—" %></dd></div>
+      </dl>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-xl p-5">
+      <h3 class="text-xs uppercase tracking-wide text-slate-500 mb-3">Změnit stavy</h3>
+      <%= form_with model: @order, url: admin_order_path(@order), method: :patch, local: true, class: "space-y-3" do |f| %>
+        <label class="block text-xs">
+          <span class="text-slate-500">Stav</span>
+          <%= f.select :status, Order.statuses.keys.map { |k| [k.humanize, k] }, {},
+                       class: "w-full mt-1 min-h-11 border border-slate-200 rounded-lg px-3 text-sm bg-white" %>
+        </label>
+        <label class="block text-xs">
+          <span class="text-slate-500">Platba</span>
+          <%= f.select :payment_state, Order.payment_states.keys.map { |k| [k.humanize, k] }, {},
+                       class: "w-full mt-1 min-h-11 border border-slate-200 rounded-lg px-3 text-sm bg-white" %>
+        </label>
+        <label class="block text-xs">
+          <span class="text-slate-500">Doprava</span>
+          <%= f.select :shipping_state, Order.shipping_states.keys.map { |k| [k.humanize, k] }, {},
+                       class: "w-full mt-1 min-h-11 border border-slate-200 rounded-lg px-3 text-sm bg-white" %>
+        </label>
+        <%= f.submit "Uložit", class: "w-full min-h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-medium cursor-pointer" %>
+      <% end %>
+    </section>
+
+    <%= link_to "↗ Otevřít zákazníkovu stránku potvrzení", order_confirmation_path(number: @order.number, token: @order.confirmation_token),
+                target: "_blank", rel: "noopener",
+                class: "block min-h-11 inline-flex items-center justify-center w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-full px-4 text-sm" %>
+  </aside>
 </div>

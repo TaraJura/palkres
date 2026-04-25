@@ -1,24 +1,145 @@
-<h1 class="text-2xl font-bold mb-4">Produkty</h1>
-<%= form_with url: admin_products_path, method: :get, local: true, class: "flex gap-2 mb-4" do |f| %>
-  <%= f.text_field :q, value: params[:q], placeholder: "Název, SKU nebo ARTIKON ID", class: "flex-1 border border-slate-200 rounded px-3 py-2" %>
-  <%= f.submit "Hledat", class: "bg-slate-900 hover:bg-slate-800 text-white rounded px-4 py-2" %>
-<% end %>
+<div class="flex items-end justify-between mb-5 gap-3 flex-wrap">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-bold">Produkty</h1>
+    <p class="text-sm text-slate-500 mt-1"><%= number_with_delimiter(@counts[:total]) %> celkem · <%= number_with_delimiter(@counts[:active]) %> aktivních</p>
+  </div>
+  <%= link_to "🔄 Spustit sync feedu", admin_sync_runs_path,
+              class: "min-h-11 inline-flex items-center bg-white border border-slate-200 hover:bg-slate-50 rounded-full px-4 py-2 text-sm font-medium" %>
+</div>
 
-<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+<%# ── Search + filter chips ──────────────────────────── %>
+<div class="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+  <%= form_with url: admin_products_path, method: :get, local: true, class: "flex flex-col md:flex-row gap-3" do |f| %>
+    <div class="relative flex-1">
+      <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <%= f.search_field :q, value: params[:q], placeholder: "Hledat název, SKU, ARTIKON ID, EAN…",
+                         class: "w-full min-h-11 pl-11 pr-4 py-2 border border-slate-200 rounded-lg text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+    </div>
+    <%= f.select :manufacturer_id,
+                 options_for_select([["Všichni výrobci", ""]] + @manufacturers.pluck(:name, :id), params[:manufacturer_id]),
+                 {}, class: "min-h-11 border border-slate-200 rounded-lg px-3 text-sm bg-white" %>
+    <%= f.submit "Hledat", class: "min-h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-5 text-sm font-medium cursor-pointer" %>
+  <% end %>
+
+  <div class="mt-3 flex flex-wrap gap-2 text-sm overflow-x-auto">
+    <%
+      filters = [
+        { key: nil,            label: "Vše",           count: @counts[:total] },
+        { key: "active",       label: "Aktivní",       count: @counts[:active] },
+        { key: "inactive",     label: "Neaktivní",     count: @counts[:inactive] },
+        { key: "topseller",    label: "Top sellers",   count: @counts[:topseller] },
+        { key: "out_of_stock", label: "Vyprodáno",     count: @counts[:out_of_stock] },
+        { key: "no_image",     label: "Bez obrázku",   count: nil }
+      ]
+    %>
+    <% filters.each do |f| %>
+      <% active = params[:filter].to_s == f[:key].to_s %>
+      <%= link_to admin_products_path(request.query_parameters.merge(filter: f[:key]).reject { |_, v| v.blank? }),
+                  class: "whitespace-nowrap inline-flex items-center gap-1 min-h-9 px-3 rounded-full border #{active ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-700 border-slate-200 hover:border-rose-300'}" do %>
+        <%= f[:label] %>
+        <% if f[:count] %>
+          <span class="text-xs <%= active ? 'opacity-75' : 'text-slate-400' %>"><%= number_with_delimiter(f[:count]) %></span>
+        <% end %>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+
+<%# ── Mobile cards · md+ table ──────────────────────── %>
+<div class="md:hidden space-y-3">
+  <% @products.each do |p| %>
+    <%= link_to admin_product_path(p), class: "flex items-center gap-3 bg-white border border-slate-200 rounded-xl p-3 hover:border-rose-300 hover:shadow-sm transition" do %>
+      <div class="w-16 h-16 bg-slate-100 rounded shrink-0 flex items-center justify-center overflow-hidden">
+        <% if p.primary_image_url %>
+          <img src="<%= p.primary_image_url %>" alt="" class="max-w-full max-h-full object-contain" loading="lazy">
+        <% else %>
+          <span class="text-slate-300 text-xl">⋯</span>
+        <% end %>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="font-medium text-sm line-clamp-2"><%= p.name %></div>
+        <div class="text-xs text-slate-500 mt-0.5"><%= p.manufacturer&.name %> · SKU <%= p.sku %></div>
+        <div class="flex items-center gap-2 mt-1.5">
+          <span class="text-sm font-bold text-rose-600"><%= format_price_cents(p.price_retail_cents) %></span>
+          <% unless p.active? %>
+            <span class="text-[10px] uppercase tracking-wide bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">neaktivní</span>
+          <% end %>
+          <% if p.topseller? %>
+            <span class="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">top</span>
+          <% end %>
+          <% if p.stock_amount.to_i <= 0 %>
+            <span class="text-[10px] uppercase tracking-wide bg-rose-100 text-rose-700 rounded-full px-2 py-0.5">není sklad</span>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>
+
+<div class="hidden md:block bg-white rounded-xl border border-slate-200 overflow-hidden">
   <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-slate-500 text-xs uppercase"><tr><th class="p-3 text-left">ARTIKON ID</th><th class="p-3 text-left">Název</th><th class="p-3 text-left">Výrobce</th><th class="p-3">Sklad</th><th class="p-3 text-right">Cena</th><th class="p-3">Aktivní</th></tr></thead>
-    <tbody>
+    <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+      <tr>
+        <th class="p-3 text-left">Produkt</th>
+        <th class="p-3 text-left hidden lg:table-cell">Výrobce</th>
+        <th class="p-3 text-center">Sklad</th>
+        <th class="p-3 text-right">Cena</th>
+        <th class="p-3 text-center">Stav</th>
+        <th class="p-3 w-10"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
       <% @products.each do |p| %>
-        <tr class="border-t border-slate-100 hover:bg-slate-50">
-          <td class="p-3 font-mono"><%= link_to p.artikon_id, admin_product_path(p), class: "text-rose-600" %></td>
-          <td class="p-3"><%= p.name %></td>
-          <td class="p-3"><%= p.manufacturer&.name %></td>
-          <td class="p-3 text-center"><%= p.stock_amount %></td>
-          <td class="p-3 text-right"><%= format_price_cents(p.price_retail_cents) %></td>
-          <td class="p-3 text-center"><%= p.active? ? "✓" : "×" %></td>
+        <tr class="hover:bg-slate-50">
+          <td class="p-3">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-slate-100 rounded shrink-0 flex items-center justify-center overflow-hidden">
+                <% if p.primary_image_url %>
+                  <img src="<%= p.primary_image_url %>" alt="" class="max-w-full max-h-full object-contain" loading="lazy">
+                <% end %>
+              </div>
+              <div class="min-w-0">
+                <%= link_to p.name, admin_product_path(p), class: "font-medium hover:text-rose-600 line-clamp-1" %>
+                <div class="text-xs text-slate-500 font-mono truncate"><%= p.artikon_id %> · <%= p.sku %></div>
+              </div>
+            </div>
+          </td>
+          <td class="p-3 text-slate-600 hidden lg:table-cell"><%= p.manufacturer&.name %></td>
+          <td class="p-3 text-center">
+            <% if p.stock_amount.to_i > 0 %>
+              <span class="text-emerald-700 font-medium"><%= p.stock_amount %></span>
+            <% else %>
+              <span class="text-rose-500">0</span>
+            <% end %>
+          </td>
+          <td class="p-3 text-right font-semibold whitespace-nowrap"><%= format_price_cents(p.price_retail_cents) %></td>
+          <td class="p-3 text-center">
+            <div class="inline-flex items-center gap-1">
+              <% if p.active? %>
+                <span class="w-2 h-2 rounded-full bg-emerald-500" title="Aktivní"></span>
+              <% else %>
+                <span class="w-2 h-2 rounded-full bg-slate-300" title="Neaktivní"></span>
+              <% end %>
+              <% if p.topseller? %>
+                <span class="text-amber-500" title="Top seller">★</span>
+              <% end %>
+            </div>
+          </td>
+          <td class="p-3 text-right">
+            <%= link_to "→", admin_product_path(p), class: "inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-rose-100 text-rose-600 font-bold" %>
+          </td>
         </tr>
       <% end %>
     </tbody>
   </table>
 </div>
+
+<% if @products.empty? %>
+  <div class="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500">
+    <div class="text-4xl mb-2">🔍</div>
+    Žádný produkt neodpovídá filtrům.
+    <%= link_to "Vyčistit filtry", admin_products_path, class: "ml-2 text-rose-600 hover:underline" %>
+  </div>
+<% end %>
+
 <%= pagy_nav_pretty(@pagy) %>
