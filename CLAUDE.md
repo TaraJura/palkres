@@ -171,6 +171,11 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Search page redesign
+- `Storefront::SearchController`: added filters (manufacturer via facet, in-stock toggle, price min/max) and six sort options (relevance/name/price/newest). Relevance ordering uses a `CASE WHEN unaccent(products.name) ILIKE 'query%' THEN 0 ELSE 1 END` prefix-match bias. Extended matcher to also hit `manufacturer_part_number`.
+- `app/views/storefront/search/show.html.erb`: hero bar with inline search input + live result count; sticky left sidebar with price range inputs, in-stock checkbox, and top-20 manufacturer facet (counts shown); active filters displayed as removable chips; improved empty state with category suggestions CTA.
+- SQL fix: qualified ambiguous `name` column as `products.name` after the manufacturers join.
+
 ### 2026-04-25 — Category button fix + Active Storage
 - Bug: homepage red button "Prohlédnout katalog" and featured-category tiles all pointed at `#` because `Category#products_count` was 0 on every row. Cause: importer uses `ProductCategory.insert_all!` which bypasses the counter-cache trigger.
 - Fix: importer now runs a single SQL `UPDATE categories SET products_count = …` over `product_categories JOIN products (active)` at the end of every sync, then invalidates the `storefront:root_categories:v1` fragment cache.
