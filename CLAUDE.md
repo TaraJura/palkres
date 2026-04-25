@@ -220,6 +220,19 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Admin redesign + slug-lookup 404 fix
+- **Bug**: `/admin/products/<slug>` returned 404 because `Admin::ProductsController#show` (and `#update`) used `Product.find(params[:id])` instead of `Product.friendly.find`. The index links to slugged URLs but the action couldn't resolve them.
+- **Fix** (`app/controllers/admin/products_controller.rb`, `…/orders_controller.rb`): use `friendly.find` for products. Added filter chips (Vše/Aktivní/Neaktivní/Top sellers/Vyprodáno/Bez obrázku) + manufacturer dropdown + extended search (name/SKU/ARTIKON ID/EAN). Counts are pre-computed and shown on the chips.
+- **Layout** (`app/views/layouts/admin.html.erb` + `app/views/admin/shared/_nav_links.html.erb`): mobile top bar with hamburger `<details>` menu, sticky 240 px sidebar on `lg:`+, current page highlighted in rose, "Přejít na e-shop" + "Odhlásit" pinned at the bottom of the nav. Logged-in user shown in the sidebar footer.
+- **Dashboard** (`app/controllers/admin/dashboard_controller.rb`, `app/views/admin/dashboard/show.html.erb`): four KPI cards (Produkty / Top sellers / Bez obrázku / Nové objednávky) clickable to filtered lists; two gradient revenue cards (paid + pending); two-column "Poslední objednávky" + "ARTIKON feed" sections.
+- **Products list**: thumbnail + name/SKU/manufacturer/stock/price/active-dot/topseller-star, table on `md:`+ collapsing to clean stacked cards on phones, big primary search field with magnifier icon, mobile-friendly filter chips that scroll horizontally if they overflow.
+- **Product show**: 280 px image + thumbnails sidebar with "Rychlé akce" inline form (toggle aktivní / topseller, save), and a main pane with header chips, ARTIKON ID / SKU / EAN / Sklad / Hmotnost / synced-at, three-card pricing block (S DPH / Bez DPH / Dealer), categories chips that link to the public storefront, sanitized description block. Footer buttons: "Otevřít na ARTIKON" + "Otevřít v e-shopu".
+- **Orders list**: same chip-pattern filters by status (Vše / Nové / Zpracování / Odeslané / Doručené / Zrušené) with counts, tržby paid total in subtitle, table → cards on mobile, status + payment colored badges via new `AdminHelper#status_badge_class` / `payment_badge_class`.
+- **Order show**: header with order number + status/payment chips, items section with snapshot lines + totals, billing/shipping address cards, optional yellow "Poznámka zákazníka" callout, sticky right sidebar with customer info + shipping/payment method + status-change form + a "↗ Otevřít zákazníkovu stránku potvrzení" button that opens the public confirmation URL with token.
+- **Helper module**: new `app/helpers/admin_helper.rb` with badge-class lookups.
+- **Asset rebuild**: `bin/rails assets:precompile` to ship new utilities.
+- Verified end-to-end: logged in as `admin@palkres.cz`, all 5 admin routes return 200 including the previously-404 slug URL `/admin/products/olejova-barva-renesans-20ml-41-zelen-hooker-sun-1365`. Content snippets present: "Rychlé akce", "ARTIKON ID", "Ceny", "Kategorie".
+
 ### 2026-04-25 — Real bank account wired (techtools s.r.o., ČS 0800)
 - Earlier change-log claimed `PALKRES_BANK_IBAN=CZ6508000000192000145399` was a placeholder. **Replaced with the real account from the ČS smlouva (26.5.2025): `6755089389/0800` → `CZ1908000000006755089389`**, beneficiary name `techtools s.r.o.` (NOT Palkres yet — Palkres will open its own once the e-shop is approved; until then payments flow to Techtools per Jiří).
 - IBAN check digits computed via ISO 13616 (`98 − ((bank ‖ prefix ‖ account ‖ encoded(country) ‖ 00) mod 97)`).
