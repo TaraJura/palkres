@@ -58,7 +58,7 @@
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
         <%= render partial: "storefront/products/card", collection: @products, as: :product %>
       </div>
-      <div class="mt-6"><%== pagy_nav(@pagy) %></div>
+      <%= pagy_nav_pretty(@pagy) %>
     <% else %>
       <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">V této kategorii zatím nejsou produkty.</div>
     <% end %>

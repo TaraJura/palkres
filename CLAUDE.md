@@ -171,6 +171,11 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Pretty pagination
+- Replaced bare `pagy_nav` (default `<a>1</a><a>…</a>` strip) with a Tailwind-styled paginator across storefront + admin.
+- New helper `ApplicationHelper#pagy_nav_pretty(pagy)` renders prev/next + numbered pages + gap dots as 40×40 px pill buttons; current page is solid rose, idle pages are white-with-hover, prev/next become disabled when at the edges.
+- Updated views: `storefront/categories/show`, `storefront/search/show`, `admin/products/index`, `admin/orders/index`.
+
 ### 2026-04-25 — Search page redesign
 - `Storefront::SearchController`: added filters (manufacturer via facet, in-stock toggle, price min/max) and six sort options (relevance/name/price/newest). Relevance ordering uses a `CASE WHEN unaccent(products.name) ILIKE 'query%' THEN 0 ELSE 1 END` prefix-match bias. Extended matcher to also hit `manufacturer_part_number`.
 - `app/views/storefront/search/show.html.erb`: hero bar with inline search input + live result count; sticky left sidebar with price range inputs, in-stock checkbox, and top-20 manufacturer facet (counts shown); active filters displayed as removable chips; improved empty state with category suggestions CTA.
