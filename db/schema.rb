@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_25_010002) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_25_030001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -122,6 +122,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_25_010002) do
 
   create_table "orders", force: :cascade do |t|
     t.jsonb "billing_address", default: {}, null: false
+    t.string "confirmation_token"
     t.datetime "created_at", null: false
     t.string "currency", default: "CZK", null: false
     t.string "email", null: false
@@ -141,6 +142,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_25_010002) do
     t.integer "total_cents", default: 0, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["confirmation_token"], name: "index_orders_on_confirmation_token", unique: true
     t.index ["number"], name: "index_orders_on_number", unique: true
     t.index ["status", "created_at"], name: "index_orders_on_status_and_created_at"
     t.index ["user_id"], name: "index_orders_on_user_id"

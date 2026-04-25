@@ -220,6 +220,14 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Order confirmation / status page after checkout
+- Old behaviour: `Storefront::CheckoutsController#create` redirected to `account_order_path(order)`, which requires login. Guest checkout therefore landed on the login page after submitting — a confusing dead end.
+- New behaviour: every Order gets a random `confirmation_token` (`SecureRandom.urlsafe_base64(24)`, indexed unique). After `create`, redirect goes to a new public route `GET /objednavka/:number?token=…` (`Storefront::OrderConfirmationsController#show`) that authorizes via `secure_compare(token, order.confirmation_token)` OR `Current.user.id == order.user_id`. Without either, 404.
+- Migration: `add_confirmation_token_to_orders` on dev + prod. Backfilled 4 pre-existing orders with random tokens.
+- Page (`app/views/storefront/order_confirmations/show.html.erb`): big green ✓ hero with order number + e-mail; 5-step status timeline (Přijata → Platba → Zpracování → Odesláno → Doručeno) that highlights the current step in rose and reached steps in emerald; "Co bude dál" 3-step explainer; full line-item summary + totals; doručovací adresa + payment-method block (with bank-transfer instructions including the variable symbol); "Pokračovat v nákupu" + "Vytvořit účet"/"Moje objednávky" footer.
+- Mobile-first: timeline stacks vertically on phones and goes horizontal at `md:`; everything has 44 px tap targets; copy in Czech.
+- Verified end-to-end: created an order in console, fetched `/objednavka/PK-202604-E63AA8?token=…` → 200 + 13 KB; without/with-wrong token → 404. Test order cleaned up after.
+
 ### 2026-04-25 — Cart UI: replace "OK" button with [−] [n] [+] stepper
 - Old UX: cart-line had a number input + an underlined "OK" link to submit. Users had to change the number AND click OK separately.
 - New UX (`app/views/storefront/cart/show.html.erb`): proper stepper. Minus button (disabled at 1) and plus button each fire a single `PATCH /kosik/polozka/:id` with the new quantity. The number field auto-submits on `change` and `blur` so typing "5" + tab still works without an explicit button. All controls are 44×44 px.

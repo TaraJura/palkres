@@ -23,6 +23,10 @@ Rails.application.routes.draw do
     resource :checkout, path: "pokladna", only: [:show, :create]
   end
 
+  # Public order-confirmation / status page (token-protected — works for guests too)
+  get "objednavka/:number", to: "storefront/order_confirmations#show",
+      as: :order_confirmation
+
   # Account area
   namespace :account, path: "uctu" do
     resources :orders, only: [:index, :show]

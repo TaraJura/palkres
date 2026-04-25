@@ -1,0 +1,176 @@
+<% content_for :title, "Objednávka #{@order.number} přijata" %>
+
+<%
+  payment_label =
+    case @order.payment_method
+    when "gopay"          then "Karta / GoPay"
+    when "bank_transfer"  then "Bankovní převod"
+    else (@order.payment_method.presence || "—").humanize
+    end
+
+  shipping_label =
+    case @order.shipping_method
+    when "packeta"        then "Zásilkovna (výdejní místo)"
+    when "ceska_posta"    then "Česká pošta — Balík Do ruky"
+    else (@order.shipping_method.presence || "—").humanize
+    end
+%>
+
+<%# ── Hero / status banner ─────────────────────────────────────────── %>
+<section class="bg-gradient-to-br from-emerald-50 via-white to-rose-50 rounded-2xl p-6 md:p-10 mb-6 text-center">
+  <div class="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full bg-emerald-100 text-emerald-700 mb-4">
+    <svg class="w-9 h-9 md:w-11 md:h-11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+  </div>
+  <h1 class="text-2xl md:text-3xl font-bold mb-2">Děkujeme za objednávku!</h1>
+  <p class="text-slate-600 mb-1 text-sm md:text-base">
+    Číslo objednávky: <strong class="font-mono text-slate-900"><%= @order.number %></strong>
+  </p>
+  <p class="text-slate-500 text-sm">
+    Potvrzení jsme odeslali na <strong class="text-slate-700"><%= @order.email %></strong>.
+  </p>
+</section>
+
+<%# ── Status timeline (mobile-first vertical, horizontal on md+) ───── %>
+<%
+  steps = [
+    { key: :placed,     label: "Přijata",      icon: "📥", reached: true,                                  current: @order.status_placed? },
+    { key: :payment,    label: "Platba",       icon: "💳", reached: @order.payment_paid? || @order.payment_authorized?, current: @order.payment_pending? },
+    { key: :processing, label: "Zpracování",   icon: "📦", reached: @order.status_processing? || @order.status_shipped? || @order.status_delivered?, current: @order.status_processing? },
+    { key: :shipped,    label: "Odesláno",     icon: "🚚", reached: @order.status_shipped? || @order.status_delivered?, current: @order.status_shipped? },
+    { key: :delivered,  label: "Doručeno",     icon: "🏠", reached: @order.status_delivered?,             current: @order.status_delivered? }
+  ]
+%>
+<section class="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 mb-6">
+  <h2 class="font-semibold mb-4">Stav objednávky</h2>
+  <ol class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-2">
+    <% steps.each_with_index do |s, i| %>
+      <li class="flex md:flex-col items-center md:items-center gap-3 md:gap-2 md:flex-1 min-w-0">
+        <div class="w-11 h-11 md:w-12 md:h-12 inline-flex items-center justify-center rounded-full text-xl shrink-0
+                    <%= s[:current] ? 'bg-rose-100 text-rose-700 ring-2 ring-rose-300' :
+                        s[:reached] ? 'bg-emerald-100 text-emerald-700' :
+                                      'bg-slate-100 text-slate-400' %>"><%= s[:icon] %></div>
+        <div class="md:text-center min-w-0">
+          <div class="text-sm font-medium <%= s[:reached] ? 'text-slate-900' : 'text-slate-400' %>"><%= s[:label] %></div>
+          <% if s[:current] %>
+            <div class="text-xs text-rose-600">aktuálně</div>
+          <% end %>
+        </div>
+      </li>
+    <% end %>
+  </ol>
+  <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+    <div>
+      <div class="text-xs uppercase tracking-wide text-slate-500">Stav</div>
+      <div class="font-medium"><%= @order.status.humanize %></div>
+    </div>
+    <div>
+      <div class="text-xs uppercase tracking-wide text-slate-500">Platba</div>
+      <div class="font-medium"><%= @order.payment_state.humanize %></div>
+    </div>
+    <div>
+      <div class="text-xs uppercase tracking-wide text-slate-500">Doprava</div>
+      <div class="font-medium"><%= @order.shipping_state.humanize %></div>
+    </div>
+  </div>
+</section>
+
+<%# ── What happens next ────────────────────────────────────────────── %>
+<section class="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 mb-6">
+  <h2 class="font-semibold mb-3">Co bude dál?</h2>
+  <ol class="space-y-3 text-sm md:text-base">
+    <li class="flex gap-3">
+      <span class="w-7 h-7 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-xs font-semibold shrink-0">1</span>
+      <div>Posíláme Vám potvrzovací e-mail s rekapitulací objednávky.</div>
+    </li>
+    <% if @order.payment_method == "bank_transfer" %>
+      <li class="flex gap-3">
+        <span class="w-7 h-7 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-xs font-semibold shrink-0">2</span>
+        <div>Po obdržení platby na náš účet (variabilní symbol = <strong><%= @order.number.delete("^0-9") %></strong>) zboží zabalíme a předáme dopravci.</div>
+      </li>
+    <% else %>
+      <li class="flex gap-3">
+        <span class="w-7 h-7 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-xs font-semibold shrink-0">2</span>
+        <div>Jakmile potvrdíme platbu, zboží zabalíme a předáme dopravci.</div>
+      </li>
+    <% end %>
+    <li class="flex gap-3">
+      <span class="w-7 h-7 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-xs font-semibold shrink-0">3</span>
+      <div>Pošleme Vám e-mail s číslem zásilky pro sledování.</div>
+    </li>
+  </ol>
+</section>
+
+<%# ── Order summary ────────────────────────────────────────────────── %>
+<section class="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-6">
+  <h2 class="font-semibold p-4 md:p-6 pb-3">Souhrn objednávky</h2>
+  <div class="border-t border-slate-100">
+    <% @order.order_items.each do |oi| %>
+      <div class="px-4 md:px-6 py-3 border-b border-slate-50 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="font-medium line-clamp-2"><%= oi.name_snapshot %></div>
+          <% if oi.sku_snapshot.present? %>
+            <div class="text-xs text-slate-500 font-mono"><%= oi.sku_snapshot %></div>
+          <% end %>
+          <div class="text-xs text-slate-400 mt-0.5"><%= oi.quantity %> × <%= format_price_cents(oi.unit_price_cents) %></div>
+        </div>
+        <div class="font-semibold shrink-0 whitespace-nowrap"><%= format_price_cents(oi.line_total_cents) %></div>
+      </div>
+    <% end %>
+  </div>
+  <div class="bg-slate-50 px-4 md:px-6 py-4 space-y-1 text-sm">
+    <div class="flex justify-between"><span>Mezisoučet</span><span><%= format_price_cents(@order.subtotal_cents) %></span></div>
+    <div class="flex justify-between"><span>Doprava (<%= shipping_label %>)</span><span><%= format_price_cents(@order.shipping_cents) %></span></div>
+    <div class="flex justify-between text-base md:text-lg font-bold pt-2 border-t border-slate-200 mt-2"><span>Celkem</span><span><%= format_price_cents(@order.total_cents) %></span></div>
+  </div>
+</section>
+
+<%# ── Delivery + payment details ───────────────────────────────────── %>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  <div class="bg-white border border-slate-200 rounded-2xl p-4 md:p-6">
+    <h2 class="font-semibold mb-3">Doručovací adresa</h2>
+    <% addr = @order.shipping_address.presence || @order.billing_address %>
+    <div class="text-sm leading-relaxed text-slate-700">
+      <%= [addr["first_name"], addr["last_name"]].compact_blank.join(" ") %><br>
+      <% if addr["company"].present? %><%= addr["company"] %><br><% end %>
+      <%= addr["street"] %><br>
+      <%= [addr["postal_code"], addr["city"]].compact_blank.join(" ") %><br>
+      <%= addr["country_code"] %>
+    </div>
+    <div class="text-xs text-slate-500 mt-3">
+      <strong>Doprava:</strong> <%= shipping_label %>
+    </div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-2xl p-4 md:p-6">
+    <h2 class="font-semibold mb-3">Platba</h2>
+    <div class="text-sm text-slate-700">
+      <strong><%= payment_label %></strong>
+      <% if @order.payment_method == "bank_transfer" %>
+        <div class="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-xs space-y-1">
+          <div><strong>Pokyny pro převod:</strong></div>
+          <div>Částka: <strong><%= format_price_cents(@order.total_cents) %></strong></div>
+          <div>VS: <strong><%= @order.number.delete("^0-9") %></strong></div>
+          <div>Najdete je i v potvrzovacím e-mailu.</div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</section>
+
+<%# ── Footer actions ───────────────────────────────────────────────── %>
+<div class="flex flex-col sm:flex-row gap-3">
+  <%= link_to "← Pokračovat v nákupu", root_path,
+              class: "inline-flex items-center justify-center min-h-12 bg-white border border-slate-200 hover:bg-slate-50 rounded-full px-5 py-3 font-medium" %>
+  <% if Current.user %>
+    <%= link_to "Moje objednávky", account_orders_path,
+                class: "inline-flex items-center justify-center min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-full px-5 py-3 font-medium" %>
+  <% else %>
+    <%= link_to "Vytvořit účet", new_session_path,
+                class: "inline-flex items-center justify-center min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-full px-5 py-3 font-medium" %>
+  <% end %>
+</div>
+
+<p class="text-xs text-slate-400 mt-6 text-center">
+  Otázky? Napište nám na <a href="mailto:info@palkres.cz" class="underline hover:text-rose-600">info@palkres.cz</a>.
+  Tuto stránku můžete kdykoliv otevřít z odkazu v potvrzovacím e-mailu.
+</p>

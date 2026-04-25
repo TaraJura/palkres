@@ -14,8 +14,10 @@ class Order < ApplicationRecord
   monetize :total_cents,    as: :total,    with_model_currency: :currency
 
   before_validation :assign_number, on: :create
+  before_validation :assign_confirmation_token, on: :create
 
   validates :number, presence: true, uniqueness: true
+  validates :confirmation_token, presence: true, uniqueness: true
   validates :email, presence: true
 
   def recompute_totals!
@@ -29,5 +31,9 @@ class Order < ApplicationRecord
 
   def assign_number
     self.number ||= "PK-#{Time.current.strftime('%Y%m')}-#{SecureRandom.hex(3).upcase}"
+  end
+
+  def assign_confirmation_token
+    self.confirmation_token ||= SecureRandom.urlsafe_base64(24)
   end
 end

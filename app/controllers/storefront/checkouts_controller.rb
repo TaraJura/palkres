@@ -39,6 +39,8 @@ class Storefront::CheckoutsController < Storefront::BaseController
     order.recompute_totals!
     @cart.cart_items.destroy_all
 
-    redirect_to account_order_path(order), notice: "Děkujeme! Objednávka #{order.number} byla odeslána."
+    redirect_to order_confirmation_path(number: order.number, token: order.confirmation_token),
+                status: :see_other,
+                notice: "Děkujeme! Objednávka #{order.number} byla odeslána."
   end
 end
