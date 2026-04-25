@@ -1,50 +1,103 @@
 <% content_for :title, "Košík" %>
-<h1 class="text-3xl font-bold mb-6">Košík</h1>
+<h1 class="text-2xl md:text-3xl font-bold mb-5 md:mb-6">Košík</h1>
 
 <% if @cart.cart_items.empty? %>
-  <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">
-    Košík je prázdný. <%= link_to "Prohlédnout katalog", root_path, class: "text-rose-600 underline" %>.
+  <div class="bg-white border border-slate-200 rounded-2xl p-8 md:p-10 text-center">
+    <div class="text-5xl mb-3">🛒</div>
+    <p class="text-slate-500 mb-5">Košík je prázdný.</p>
+    <%= link_to "Prohlédnout katalog", root_path,
+                class: "inline-flex items-center justify-center min-h-11 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-full px-5 py-2.5 font-medium" %>
   </div>
 <% else %>
+  <%# ── Mobile: stacked cards · md+: table ─────────────────────────── %>
   <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
-        <tr><th class="text-left p-3">Produkt</th><th class="p-3">Množství</th><th class="p-3 text-right">Cena</th><th class="p-3"></th></tr>
-      </thead>
-      <tbody>
-        <% @cart.cart_items.includes(:product).each do |item| %>
-          <tr class="border-t border-slate-100">
-            <td class="p-3">
-              <div class="flex items-center gap-3">
-                <% if item.product.primary_image_url %>
-                  <img src="<%= item.product.primary_image_url %>" class="w-14 h-14 object-contain bg-slate-50 rounded">
-                <% end %>
-                <div>
-                  <%= link_to item.product.name, product_path(slug: item.product.slug), class: "font-medium hover:text-rose-600" %>
-                  <div class="text-xs text-slate-500"><%= item.product.sku %></div>
-                </div>
-              </div>
-            </td>
-            <td class="p-3 text-center">
-              <%= form_with url: update_kosik_path(id: item.id), method: :patch, local: true, class: "inline-flex items-center gap-1" do |f| %>
-                <%= f.number_field :quantity, value: item.quantity, min: 1, max: 99, class: "w-16 border border-slate-200 rounded px-2 py-1 text-center" %>
-                <%= f.submit "OK", class: "text-xs text-slate-500 underline" %>
-              <% end %>
-            </td>
-            <td class="p-3 text-right font-medium"><%= format_price_cents(item.line_total_cents) %></td>
-            <td class="p-3 text-right">
-              <%= button_to "×", remove_kosik_path(id: item.id), method: :delete, class: "text-slate-400 hover:text-rose-600 text-xl leading-none" %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-      <tfoot class="bg-slate-50">
-        <tr class="border-t border-slate-200"><td colspan="2" class="p-3 font-semibold text-right">Mezisoučet</td><td colspan="2" class="p-3 text-right text-lg font-bold"><%= format_price_cents(@cart.subtotal_cents) %></td></tr>
-      </tfoot>
-    </table>
+    <%# desktop header %>
+    <div class="hidden md:grid bg-slate-50 text-slate-500 text-xs uppercase tracking-wide grid-cols-[1fr_auto_140px_56px] gap-4 p-3">
+      <div>Produkt</div>
+      <div class="text-center">Množství</div>
+      <div class="text-right">Cena</div>
+      <div></div>
+    </div>
+
+    <% @cart.cart_items.includes(:product).each do |item| %>
+      <div class="border-t border-slate-100 first:border-t-0 md:first:border-t md:border-t md:grid md:grid-cols-[1fr_auto_140px_56px] md:gap-4 md:items-center p-3 md:p-3 flex flex-col gap-3">
+
+        <%# Product %>
+        <div class="flex items-center gap-3 min-w-0">
+          <% if item.product.primary_image_url %>
+            <img src="<%= item.product.primary_image_url %>" alt=""
+                 class="w-16 h-16 md:w-14 md:h-14 object-contain bg-slate-50 rounded shrink-0" loading="lazy">
+          <% end %>
+          <div class="min-w-0">
+            <%= link_to item.product.name, product_path(slug: item.product.slug),
+                        class: "font-medium hover:text-rose-600 line-clamp-2" %>
+            <div class="text-xs text-slate-500"><%= item.product.sku %></div>
+          </div>
+        </div>
+
+        <%# Quantity stepper — [−] [n] [+] %>
+        <div class="flex items-center justify-between md:justify-center gap-3 md:gap-0">
+          <span class="md:hidden text-sm text-slate-500">Množství</span>
+          <div class="inline-flex items-center border border-slate-200 rounded-full overflow-hidden">
+            <%= button_to update_kosik_path(id: item.id), method: :patch, params: { quantity: [item.quantity - 1, 1].max },
+                          form_class: "inline-flex",
+                          class: "w-11 h-11 inline-flex items-center justify-center hover:bg-slate-100 active:bg-slate-200 disabled:text-slate-300 disabled:hover:bg-transparent",
+                          disabled: item.quantity <= 1,
+                          "aria-label": "Snížit množství" do %>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+            <% end %>
+            <%= form_with url: update_kosik_path(id: item.id), method: :patch, local: true,
+                          data: { controller: "cart-qty" },
+                          class: "inline-flex" do |f| %>
+              <%= f.number_field :quantity, value: item.quantity, min: 1, max: 99,
+                                 inputmode: "numeric",
+                                 onchange: "this.form.requestSubmit()",
+                                 onblur: "if(this.value!=this.defaultValue) this.form.requestSubmit()",
+                                 "aria-label": "Množství",
+                                 class: "w-12 h-11 text-center text-base font-medium bg-transparent focus:outline-none focus:bg-rose-50" %>
+            <% end %>
+            <%= button_to update_kosik_path(id: item.id), method: :patch, params: { quantity: [item.quantity + 1, 99].min },
+                          form_class: "inline-flex",
+                          class: "w-11 h-11 inline-flex items-center justify-center hover:bg-slate-100 active:bg-slate-200",
+                          "aria-label": "Zvýšit množství" do %>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            <% end %>
+          </div>
+        </div>
+
+        <%# Price %>
+        <div class="md:text-right flex justify-between md:block">
+          <span class="md:hidden text-sm text-slate-500">Cena</span>
+          <div>
+            <div class="font-semibold text-base md:text-base"><%= format_price_cents(item.line_total_cents) %></div>
+            <% if item.quantity > 1 %>
+              <div class="text-xs text-slate-400"><%= item.quantity %> × <%= format_price_cents(item.unit_price_cents) %></div>
+            <% end %>
+          </div>
+        </div>
+
+        <%# Remove %>
+        <div class="md:text-right">
+          <%= button_to remove_kosik_path(id: item.id), method: :delete,
+                        class: "w-11 h-11 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full",
+                        "aria-label": "Odebrat z košíku" do %>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# Subtotal %>
+    <div class="border-t border-slate-200 bg-slate-50 p-4 flex items-center justify-between">
+      <span class="font-semibold">Mezisoučet</span>
+      <span class="text-xl md:text-2xl font-bold"><%= format_price_cents(@cart.subtotal_cents) %></span>
+    </div>
   </div>
 
-  <div class="mt-6 flex justify-end">
-    <%= link_to "Pokračovat k pokladně →", storefront_checkout_path, class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 py-3 font-medium" %>
+  <div class="mt-5 md:mt-6 flex flex-col sm:flex-row justify-end gap-3">
+    <%= link_to "← Pokračovat v nákupu", root_path,
+                class: "inline-flex items-center justify-center min-h-12 bg-white border border-slate-200 hover:bg-slate-50 rounded-full px-5 py-3 font-medium" %>
+    <%= link_to "Pokračovat k pokladně →", storefront_checkout_path,
+                class: "inline-flex items-center justify-center min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-full px-6 py-3 font-medium" %>
   </div>
 <% end %>

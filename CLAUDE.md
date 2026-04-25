@@ -220,6 +220,12 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Cart UI: replace "OK" button with [−] [n] [+] stepper
+- Old UX: cart-line had a number input + an underlined "OK" link to submit. Users had to change the number AND click OK separately.
+- New UX (`app/views/storefront/cart/show.html.erb`): proper stepper. Minus button (disabled at 1) and plus button each fire a single `PATCH /kosik/polozka/:id` with the new quantity. The number field auto-submits on `change` and `blur` so typing "5" + tab still works without an explicit button. All controls are 44×44 px.
+- Bonus mobile-first redesign of the same view: table collapses to stacked cards under `md:`, each card shows label-prefixed Množství/Cena, sticky subtotal bar, two-button footer ("Pokračovat v nákupu" + "Pokračovat k pokladně") that stacks on small screens.
+- Required `bin/rails assets:precompile` to ship the new utility classes.
+
 ### 2026-04-25 — Cart add-to-cart off-by-one (qty=2 on first add)
 - Bug: clicking "Vložit do košíku" once added quantity = 2, not 1. Each subsequent click also +2.
 - Root cause: the cart_items migration used `t.integer :quantity, null: false, default: 1`, so `cart_items.find_or_initialize_by(product_id: …)` returns an in-memory object whose `quantity` is **already 1** (the DB default applied by Active Record). My old code did `item.quantity = item.quantity.to_i + quantity`, turning 1 + 1 = 2 on a fresh row.
