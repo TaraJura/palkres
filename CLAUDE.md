@@ -206,6 +206,185 @@ The change log is the **single source of truth for "what happened to Palkres"**.
 | `Session` | user_id, ip_address, user_agent (Rails 8 auth scaffold) |
 | `ActiveStorage::{Blob,Attachment,VariantRecord}` | standard, used by `ProductImage#file` once `ImageCacherJob` runs |
 
+## Design system
+
+Single source of truth for UI tokens and component patterns. **Every new view or partial MUST follow this — don't invent one-off colors / spacing / shadows.** Tied to Rule 10 (mobile-first) and Rule 11 (Czech-only).
+
+### Brand colors (Tailwind palette)
+
+| Token | Tailwind | Use |
+|---|---|---|
+| **Primary** | `rose-600` (default) / `rose-700` (hover) / `rose-800` (active) / `rose-50` (tint) / `rose-100` (subtle bg) / `rose-200` (border on hero) / `rose-300` (hover border) / `rose-500` (selected border) | All primary CTAs, links, current pagination page, active filter chips, focus rings (`focus:ring-rose-100`), brand accent in headlines |
+| **Success / payment** | `emerald-50/100/500/600/700` | "Skladem" badges, payment-section selected state, paid-state pills, success flashes, gradient revenue cards |
+| **Warning / pending / payment-instructions** | `amber-50/100/200/400/500/600/700/800` | Bank-transfer instructions callout, "Nejoblíbenější" badges (use emerald instead — see exception below), pending payment, payment-instructions on confirmation page |
+| **Surface neutral** | `slate-50/100/200/300/400/500/600/700/800/900` | App background `bg-slate-100` (admin) / `bg-slate-50` (storefront), card borders `border-slate-200`, body text `text-slate-700`, muted `text-slate-500`, secondary buttons |
+| **Error** | `rose-50/100/200/600/700/800` (same family as primary, the bg-rose-50 + text-rose-700 combo doubles as alert) | Validation errors, 404 fallback, destructive confirmations |
+
+> Exception: status badges in admin use the wider palette (`amber` placed, `blue` processing, `indigo` shipped, `emerald` delivered, `rose` cancelled) — see `app/helpers/admin_helper.rb`.
+
+### Typography
+
+- Default font stack: system (Helvetica / Arial fallback) — Rails 8 default, no custom webfont.
+- **Hero h1**: `text-3xl md:text-4xl lg:text-5xl font-bold leading-tight tracking-tight`
+- **Page h1**: `text-2xl md:text-3xl font-bold`
+- **Section h2**: `text-xl md:text-2xl font-bold` (`font-semibold` for narrower contexts)
+- **Card / form-section h2**: `text-lg font-semibold`
+- **Eyebrow / uppercase label**: `text-xs uppercase tracking-wide text-slate-500 font-semibold`
+- **Body**: `text-base` minimum (≥ 16 px on mobile per Rule 10), `text-sm` only for secondary info
+- **Code / monospace** (numbers, IBAN, SKU, order numbers): `font-mono`
+
+### Spacing & radius
+
+- **Container width**: `max-w-7xl mx-auto px-3 md:px-4` (storefront layout). Admin uses sidebar grid, no max-width.
+- **Page vertical rhythm**: sections separated by `mt-6` / `mt-10` / `md:mt-12`. Cards inside a section: `space-y-5` / `space-y-6`.
+- **Card padding**: `p-4 md:p-5` (compact), `p-5 md:p-6` (standard), `p-6 md:p-8` (auth/forms), `p-6 md:p-10` (hero).
+- **Radius**: `rounded-xl` (small cards / inputs), `rounded-2xl` (standard cards / sections), `rounded-3xl` (hero / dark CTA bands), `rounded-full` (buttons, chips, indicators, pagination buttons).
+- **Borders**: `border border-slate-200` (default card), `border-2 border-rose-100`/`border-emerald-100` (highlighted form section, see checkout).
+- **Shadows**: `shadow-sm` (cards on hover), `shadow-lg shadow-rose-200` (primary CTA on hero), no big shadows in flat sections.
+
+### Tap targets
+
+Minimum **44 × 44 px** (WCAG 2.5.5). Standard sizes:
+- **Primary CTA / submit**: `min-h-12` + `px-6 py-3` (~48 px tall)
+- **Secondary button / pagination pill**: `min-h-10` + `px-4` or `w-10 h-10` (40 px — only above the 44 px floor when the visible target plus its padding exceeds 44 px)
+- **Filter chips / facet rows**: `min-h-11`
+- **Icon-only**: `w-11 h-11 inline-flex items-center justify-center`
+- **Form inputs**: `min-h-12` + `px-4 py-3 text-base`
+
+### Components & patterns (use these — don't invent variants)
+
+#### Button — primary
+```erb
+<%= link_to "…", path, class: "inline-flex items-center justify-center gap-2 min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold rounded-full px-6 py-3 transition" %>
+```
+
+#### Button — secondary
+```erb
+<%= link_to "…", path, class: "inline-flex items-center justify-center gap-2 min-h-12 bg-white hover:bg-slate-50 border border-slate-200 rounded-full px-6 py-3 font-medium" %>
+```
+
+#### Button — destructive (icon-only)
+```erb
+<%= button_to path, method: :delete, class: "w-11 h-11 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full" do %>
+  <svg class="w-5 h-5" …>…</svg>
+<% end %>
+```
+
+#### Form input
+```erb
+<input type="email" class="w-full min-h-12 pl-12 pr-4 py-3 border border-slate-200 rounded-lg text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none">
+```
+With inline icon at `absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none`. **Always** set `autocomplete=` + appropriate `inputmode=` per Rule 10.
+
+#### Card
+```erb
+<div class="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">…</div>
+```
+
+#### Hero section
+```erb
+<section class="bg-gradient-to-br from-rose-100 via-white to-amber-50 rounded-3xl p-6 md:p-12 lg:p-16 overflow-hidden relative">…</section>
+```
+Add decorative blurred blobs: `<div class="absolute -top-20 -right-20 w-72 h-72 bg-rose-200/30 rounded-full blur-3xl pointer-events-none"></div>`.
+
+#### Dark CTA band
+`bg-gradient-to-br from-slate-900 via-slate-800 to-rose-900 text-white rounded-3xl p-6 md:p-12` — used for B2B / wholesale CTA only.
+
+#### Chip (filter / facet / info)
+- **Idle**: `inline-flex items-center min-h-9 bg-white border border-slate-200 hover:border-rose-300 rounded-full px-3 text-sm` + count `<span class="text-xs text-slate-400">`
+- **Active**: `bg-rose-600 text-white border-rose-600`
+- **Removable** (active filter): `bg-rose-50 text-rose-700 hover:bg-rose-100` + trailing `<span class="text-rose-400">×</span>`
+
+#### Selectable card with hidden radio (checkout, etc.)
+```erb
+<label class="block relative cursor-pointer">
+  <%= f.radio_button :method, "x", class: "peer sr-only" %>
+  <div class="border-2 border-slate-200 rounded-2xl p-4 pr-10 transition
+              hover:border-rose-300 hover:bg-rose-50/30
+              peer-checked:border-rose-500 peer-checked:bg-rose-50 peer-checked:shadow-sm">…</div>
+  <span aria-hidden="true" class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 border-slate-300 bg-white peer-checked:border-rose-600 peer-checked:bg-rose-600 flex items-center justify-center">
+    <svg class="w-3.5 h-3.5 text-white">…</svg>
+  </span>
+</label>
+```
+**Important**: peer-checked: only reaches *siblings* of the input. Indicator span MUST be a direct sibling of `<input class="peer">`, not nested inside the card div.
+
+#### Numbered step header
+```erb
+<div class="flex items-center gap-3 mb-4">
+  <span class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-sm font-bold">3</span>
+  <h2 class="font-semibold text-lg">Způsob dopravy</h2>
+</div>
+```
+
+#### Mobile-first collapsible filter sidebar
+```erb
+<aside class="lg:sticky lg:top-20 lg:self-start">
+  <details class="bg-white border border-slate-200 rounded-2xl lg:open" <%= "open" if has_filters %>>
+    <summary class="flex items-center justify-between p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden lg:cursor-default">…</summary>
+    <div class="px-4 pb-4 space-y-5 border-t border-slate-100 pt-4">…</div>
+  </details>
+</aside>
+```
+Always-open on `lg:`+, collapsed by default on phones unless filters are active.
+
+#### Status / payment / shipping badge
+Use the helpers in `app/helpers/admin_helper.rb`: `status_badge_class`, `payment_badge_class`, `sync_status_badge_class`. Rendered as `<span class="text-xs px-2.5 py-1 rounded-full <%= status_badge_class(o.status) %>">…</span>`.
+
+#### Pagination
+Always `<%= pagy_nav_pretty(@pagy) %>`. Never the raw `pagy_nav` (English numbers / no styling).
+
+#### Pricing display
+Always `format_price_cents(cents)` (helper) — never raw integer division. Czech format: `1 234,50 Kč` (space thousands, comma decimal, `Kč` after, space between).
+
+#### Empty state
+```erb
+<div class="bg-white border border-slate-200 rounded-2xl p-8 md:p-12 text-center">
+  <div class="text-4xl md:text-6xl mb-3">🔍</div>  <!-- emoji icon -->
+  <h2 class="text-xl font-semibold mb-2">Nic jsme nenašli</h2>
+  <p class="text-slate-500 mb-5 max-w-md mx-auto text-sm md:text-base">…</p>
+  <%= link_to "CTA", path, class: "[primary button]" %>
+</div>
+```
+
+### Iconography
+
+- **Emoji** for category / section headers, illustrative use. Mapping (use these consistently across pages — don't drift): Kresba ✏️, Malba 🎨, Papírnictví 📄, Grafika 🖼️, Keramika 🏺, Tvoření ✂️, fallback 🎯.
+- **Inline SVG** (24×24 viewBox, `stroke="currentColor"`, `stroke-width="2"` or `2.5` for bold strokes) for UI controls (search, lock, mail, cart, hamburger, checkmark, arrow). Never use a font-icon library.
+- **Cart icon**: `<path d="M3 3h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>`
+- **Search**: `<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>`
+- **Lock**: `<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>`
+- **Check**: `<path d="M5 12l5 5L20 7"/>` with `stroke-width="2.5"` or `3`
+- **Hamburger**: `<path d="M4 6h16M4 12h16M4 18h16"/>`
+
+### Animations
+
+- `transition` (default) on hover/active state changes (border, bg, color, shadow).
+- `animate-pulse` only on live-data signals (e.g. "Skladem 29k+" green dot).
+- `group-hover:scale-105` on product images / category icons. **No fade-ins, no slide-ins on page load** — they hurt perceived performance.
+
+### Responsive breakpoints (Tailwind defaults)
+
+| Token | px | Use |
+|---|---|---|
+| (default) | < 640 | Phone — single column, full-width inputs, stacked CTAs |
+| `sm:` | ≥ 640 | Big phones / small tablets — first chance to put two buttons side by side |
+| `md:` | ≥ 768 | Tablets — flip tables ↔ cards, show 2-3 column product grids |
+| `lg:` | ≥ 1024 | Laptops — sidebar layouts, sticky positioning, two-column heroes |
+| `xl:` | ≥ 1280 | Wide desktops — 4-column product grid, larger paddings |
+
+Single-column is the **default**. Per Rule 10, every new component must work at `< 640 px` first.
+
+### Don't
+
+- Don't add a new color outside the palette above (no `blue-500` for "info" — use `slate` or `rose` muted).
+- Don't reach for a third-party UI kit (Bootstrap, DaisyUI, Tailwind UI components verbatim) — keep the bespoke Palkres look.
+- Don't use icon font libraries (Font Awesome, Heroicons npm). Inline SVG only.
+- Don't write CSS files — Tailwind utilities only. The single CSS file is `app/assets/tailwind/application.css` (just the `@import "tailwindcss"` directive).
+- Don't add `font-family` overrides. System stack stays.
+- Don't put more than two CTAs side by side on mobile — they truncate. Stack vertically.
+- Don't ship a new component without `bin/rails assets:precompile` — new utility classes won't be in the built CSS.
+
 ## Key paths
 
 ### Code
@@ -306,6 +485,26 @@ sudo journalctl -u palkres-eshop.service -f
 ## Post-launch change log
 
 Newest at top. Every non-trivial production change should append an entry here.
+
+### 2026-04-25 — Category page redesign + Design System section in CLAUDE.md
+- **Category page redesign** (`app/views/storefront/categories/show.html.erb`, `app/controllers/storefront/categories_controller.rb`):
+  - **Hero header** with category emoji (mapped: Kresba ✏️ / Malba 🎨 / Papírnictví 📄 / Grafika 🖼️ / Keramika 🏺 / Tvoření ✂️), title + subtitle showing `"X produktů v Y podkategoriích"`. Same gradient as the home hero (`from-rose-50 via-white to-amber-50`).
+  - **Subcategory chips** as a flex-wrap row above the grid: each chip shows name + product count, linked, mobile-friendly 44 px tap targets (was a plain `<ul>` left-aligned in the sidebar).
+  - **Sticky filter sidebar** that collapses into a `<details>` drawer on mobile, always-open on `lg:`+. Same component pattern as the search page — "Pouze skladem" toggle + manufacturer facet with counts (top-20 by product count).
+  - **Sort + active-filter chips bar** above the grid (mirrors search page UX): result count, removable chips for selected manufacturer / in-stock, sort dropdown (Název A–Z / Z–A, Cena nejnižší / nejvyšší, Nejnovější).
+  - Controller now hardens sort against arbitrary input (`SORTS` whitelist), wraps the manufacturer-facet `COUNT(DISTINCT)` in `Arel.sql` to silence Rails 8's `UnknownAttributeReference` raw-SQL guard, and exposes `@total_in_category`, `@selected_manufacturer`, `@manufacturer_facets` for the new chips.
+  - Pagination already uses `pagy_nav_pretty` (no change).
+- **New "Design system" section in CLAUDE.md** (between Data model and Key paths): canonical reference for tokens + components.
+  - Brand colors (`rose` primary / `emerald` success / `amber` warm / `slate` neutral) with each shade's role
+  - Typography scale (`text-3xl md:text-4xl lg:text-5xl` hero down to `text-xs uppercase tracking-wide` eyebrow)
+  - Spacing & radius (`rounded-xl/2xl/3xl/full`, padding scale per surface), shadows
+  - Tap-target floor (44 px) + standard button heights
+  - Component snippets to copy-paste: primary/secondary button, form input + inline icon, card, hero, dark CTA band, chip (idle/active/removable), peer-checked selectable card with the indicator-must-be-sibling rule, numbered step header, mobile-first collapsible `<details>` filter sidebar, status badge helpers, pretty pagination, price formatter, empty state
+  - Iconography: emoji map for categories + inline-SVG snippets for cart / search / lock / check / hamburger
+  - Animation rules: `transition` always, `animate-pulse` only for live signals, no on-load fade/slide
+  - Responsive breakpoint table (sm/md/lg/xl) with what each tier should add
+  - Hard "Don't" list: no third-party UI kits, no icon fonts, no extra color tokens, no CSS files (Tailwind utilities only), no `font-family` override, no skipping `assets:precompile` after class changes
+- The Design System makes Rule 10 (mobile-first) and Rule 11 (Czech-only) actionable: any new view should now copy a snippet from this section instead of inventing one-off styles. Future divergence is a code-review concern.
 
 ### 2026-04-25 — Home page conversion redesign
 - Old home: 4-block hero + flat category list + recent products + plain brand chips. No social proof, no reasons-to-buy, no big-ticket CTA, no funnel for B2B/wholesale.

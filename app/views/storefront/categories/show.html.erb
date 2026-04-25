@@ -1,66 +1,182 @@
 <% content_for :title, "#{@category.name} — Palkres" %>
 
-<nav class="text-sm text-slate-500 mb-4">
+<%
+  base_params = request.query_parameters.reject { |k, _| k.to_s == "page" }.symbolize_keys
+  has_filters = params[:manufacturer_id].present? || params[:in_stock] == "1"
+
+  cat_emoji = case @category.path.first&.name.to_s.downcase
+              when /kresb/ then "✏️"
+              when /malb/  then "🎨"
+              when /papír/ then "📄"
+              when /grafik/ then "🖼️"
+              when /keram/ then "🏺"
+              when /tvoř|tvor/ then "✂️"
+              else "🎯"
+              end
+%>
+
+<%# ── Breadcrumbs ──────────────────────────────────────────────── %>
+<nav class="text-sm text-slate-500 mb-3 flex flex-wrap items-center gap-1">
   <%= link_to "Domů", root_path, class: "hover:text-rose-600" %>
   <% @category.path.each do |p| %>
-    <span class="mx-1">›</span>
+    <span class="text-slate-300">›</span>
     <% if p == @category %>
-      <span class="text-slate-900"><%= p.name %></span>
+      <span class="text-slate-900 font-medium"><%= p.name %></span>
     <% else %>
       <%= link_to p.name, category_path_for(p), class: "hover:text-rose-600" %>
     <% end %>
   <% end %>
 </nav>
 
-<div class="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
-  <aside class="space-y-6">
-    <% if @subcategories.any? %>
-      <div>
-        <h3 class="font-semibold mb-2 text-sm uppercase text-slate-500">Podkategorie</h3>
-        <ul class="space-y-1 text-sm">
-          <% @subcategories.each do |sub| %>
-            <li><%= link_to "#{sub.name} (#{sub.products_count})", category_path_for(sub), class: "hover:text-rose-600" %></li>
+<%# ── Hero header ─────────────────────────────────────────────── %>
+<header class="bg-gradient-to-br from-rose-50 via-white to-amber-50 rounded-2xl p-5 md:p-7 mb-5 md:mb-6">
+  <div class="flex items-start gap-4 md:gap-5">
+    <div class="text-4xl md:text-5xl shrink-0" aria-hidden="true"><%= cat_emoji %></div>
+    <div class="min-w-0 flex-1">
+      <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight"><%= @category.name %></h1>
+      <p class="text-sm md:text-base text-slate-600 mt-1">
+        <strong><%= number_with_delimiter(@total_in_category) %></strong> produktů
+        <% if @subcategories.any? %>
+          v <%= @subcategories.count %> podkategoriích
+        <% end %>
+      </p>
+    </div>
+  </div>
+</header>
+
+<%# ── Subcategory chips (if any) ──────────────────────────────── %>
+<% if @subcategories.any? %>
+  <section class="mb-5 md:mb-6">
+    <div class="flex items-baseline justify-between mb-3">
+      <h2 class="text-sm uppercase tracking-wide text-slate-500 font-semibold">Podkategorie</h2>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <% @subcategories.each do |sub| %>
+        <%= link_to category_path_for(sub),
+                    class: "group inline-flex items-center gap-2 min-h-11 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-full px-4 py-2 text-sm transition" do %>
+          <span class="font-medium"><%= sub.name %></span>
+          <span class="text-xs text-slate-400 group-hover:text-rose-500"><%= number_with_delimiter(sub.products_count) %></span>
+        <% end %>
+      <% end %>
+    </div>
+  </section>
+<% end %>
+
+<%# ── Filters + grid ───────────────────────────────────────── %>
+<div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5 md:gap-6">
+  <%# Sidebar (collapsible on mobile) %>
+  <aside class="lg:sticky lg:top-20 lg:self-start">
+    <details class="bg-white border border-slate-200 rounded-2xl lg:open" <%= "open" if has_filters %>>
+      <summary class="flex items-center justify-between gap-2 p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden lg:cursor-default">
+        <span class="flex items-center gap-2 font-semibold">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
+          Filtry
+          <% if has_filters %>
+            <span class="bg-rose-600 text-white text-xs rounded-full px-2 py-0.5">aktivní</span>
           <% end %>
-        </ul>
-      </div>
-    <% end %>
-    <% if @manufacturers_for_facet.any? %>
-      <div>
-        <h3 class="font-semibold mb-2 text-sm uppercase text-slate-500">Výrobce</h3>
-        <ul class="space-y-1 text-sm">
-          <% @manufacturers_for_facet.each do |m| %>
-            <li><%= link_to m.name, url_for(request.params.merge(manufacturer_id: m.id)), class: "hover:text-rose-600" %></li>
-          <% end %>
-        </ul>
-        <% if params[:manufacturer_id].present? %>
-          <div class="mt-2"><%= link_to "× zrušit filtr", url_for(request.params.except(:manufacturer_id)), class: "text-xs text-slate-500 underline" %></div>
+        </span>
+        <span class="lg:hidden text-slate-400 text-xl leading-none">⌄</span>
+      </summary>
+
+      <div class="px-4 pb-4 space-y-5 border-t border-slate-100 pt-4">
+        <% if has_filters %>
+          <div>
+            <%= link_to "× Vyčistit všechny filtry",
+                        category_path(path: params[:path]),
+                        class: "block text-sm text-rose-600 hover:underline" %>
+          </div>
+        <% end %>
+
+        <%= form_with url: category_path(path: params[:path]), method: :get, local: true, class: "space-y-3" do |f| %>
+          <%= hidden_field_tag :sort, @sort %>
+          <label class="flex items-center gap-3 min-h-11 cursor-pointer select-none">
+            <%= check_box_tag :in_stock, "1", params[:in_stock] == "1",
+                              class: "w-5 h-5 text-rose-600 border-slate-300 rounded focus:ring-rose-400" %>
+            <span class="text-base">Pouze skladem</span>
+          </label>
+          <%= f.submit "Použít",
+                       class: "w-full min-h-11 bg-slate-900 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full text-sm font-medium cursor-pointer" %>
+        <% end %>
+
+        <% if @manufacturer_facets.any? %>
+          <div class="pt-4 border-t border-slate-100">
+            <div class="text-xs uppercase tracking-wide text-slate-500 mb-2 font-semibold">Výrobce</div>
+            <ul class="space-y-0.5 max-h-72 overflow-y-auto -mx-2">
+              <% @manufacturer_facets.each do |mid, mname, count| %>
+                <li>
+                  <% if params[:manufacturer_id].to_i == mid %>
+                    <%= link_to category_path(base_params.except(:manufacturer_id).merge(path: params[:path])),
+                                class: "flex items-center justify-between rounded-lg px-3 min-h-11 bg-rose-100 text-rose-800 font-medium" do %>
+                      <span class="truncate">✓ <%= mname %></span>
+                      <span class="text-xs ml-2"><%= number_with_delimiter(count) %></span>
+                    <% end %>
+                  <% else %>
+                    <%= link_to category_path(base_params.merge(manufacturer_id: mid, path: params[:path])),
+                                class: "flex items-center justify-between rounded-lg px-3 min-h-11 hover:bg-slate-50 active:bg-slate-100" do %>
+                      <span class="truncate"><%= mname %></span>
+                      <span class="text-xs text-slate-400 ml-2"><%= number_with_delimiter(count) %></span>
+                    <% end %>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </div>
         <% end %>
       </div>
-    <% end %>
+    </details>
   </aside>
 
+  <%# Main pane %>
   <div>
-    <div class="flex items-baseline justify-between mb-4">
-      <h1 class="text-3xl font-bold"><%= @category.name %></h1>
-      <div class="text-sm text-slate-500">
-        <%== pagy_info(@pagy, item_name: "produktů") %>
-        <form class="inline-block ml-3">
-          <select name="sort" onchange="this.form.submit()" class="border border-slate-200 rounded px-2 py-1">
-            <option value="name"                selected="<%= params[:sort]=='name' %>">Název</option>
-            <option value="price_retail_cents"  selected="<%= params[:sort]=='price_retail_cents' %>">Cena</option>
-            <option value="synced_at"           selected="<%= params[:sort]=='synced_at' %>">Novinky</option>
-          </select>
-        </form>
+    <div class="bg-white border border-slate-200 rounded-2xl p-3 mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="flex items-center gap-2 flex-wrap text-sm text-slate-600 min-w-0">
+        <span class="whitespace-nowrap"><%== pagy_info(@pagy, item_name: "produktů") %></span>
+        <% if @selected_manufacturer %>
+          <%= link_to category_path(base_params.except(:manufacturer_id).merge(path: params[:path])),
+                      class: "inline-flex items-center gap-1 bg-rose-50 text-rose-700 rounded-full px-3 min-h-8 text-xs hover:bg-rose-100 whitespace-nowrap" do %>
+            <%= @selected_manufacturer.name %> <span class="text-rose-400">×</span>
+          <% end %>
+        <% end %>
+        <% if params[:in_stock] == "1" %>
+          <%= link_to category_path(base_params.except(:in_stock).merge(path: params[:path])),
+                      class: "inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 rounded-full px-3 min-h-8 text-xs hover:bg-emerald-100 whitespace-nowrap" do %>
+            skladem <span class="text-emerald-400">×</span>
+          <% end %>
+        <% end %>
       </div>
+
+      <%= form_with url: category_path(path: params[:path]), method: :get, local: true,
+                    class: "flex items-center gap-2 text-sm shrink-0" do |f| %>
+        <% base_params.except(:sort, :page, :path).each do |k, v| %>
+          <%= hidden_field_tag k, v %>
+        <% end %>
+        <label for="sort_select" class="text-slate-500 whitespace-nowrap">Seřadit:</label>
+        <%= select_tag :sort,
+              options_for_select(
+                [
+                  ["Název: A–Z",     "name_asc"],
+                  ["Název: Z–A",     "name_desc"],
+                  ["Cena: nejnižší", "price_asc"],
+                  ["Cena: nejvyšší", "price_desc"],
+                  ["Nejnovější",     "newest"]
+                ], @sort
+              ),
+              id: "sort_select",
+              onchange: "this.form.submit()",
+              class: "min-h-10 border border-slate-200 rounded-lg px-3 py-1.5 text-base bg-white" %>
+      <% end %>
     </div>
 
     <% if @products.any? %>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
         <%= render partial: "storefront/products/card", collection: @products, as: :product %>
       </div>
       <%= pagy_nav_pretty(@pagy) %>
     <% else %>
-      <div class="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">V této kategorii zatím nejsou produkty.</div>
+      <div class="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+        <div class="text-4xl mb-2">😕</div>
+        <p>V této kategorii pro zvolené filtry není žádný produkt.</p>
+      </div>
     <% end %>
   </div>
 </div>
