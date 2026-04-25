@@ -8,6 +8,11 @@ module Payments
   # Spec reference: https://qr-platba.cz/pro-vyvojare/specifikace-formatu/
   # Format: SPD*1.0*ACC:<IBAN>*AM:<amount>*CC:<currency>*MSG:<msg>*X-VS:<vs>
   class CzechQr
+    # Known-bogus IBANs that earlier change-log entries shipped as placeholders.
+    # available? returns false for these so a regression in .env can't push
+    # a fake account onto a real customer's confirmation page or e-mail.
+    PLACEHOLDER_IBANS = %w[CZ6508000000192000145399].freeze
+
     def self.iban
       ENV.fetch("PALKRES_BANK_IBAN", "").gsub(/\s+/, "")
     end
@@ -16,8 +21,12 @@ module Payments
       ENV.fetch("PALKRES_BANK_NAME", "Palkres s.r.o.")
     end
 
+    def self.placeholder?
+      PLACEHOLDER_IBANS.include?(iban)
+    end
+
     def self.available?
-      iban.match?(/\A[A-Z]{2}\d{2}[A-Z0-9]{10,30}\z/)
+      iban.match?(/\A[A-Z]{2}\d{2}[A-Z0-9]{10,30}\z/) && !placeholder?
     end
 
     # Returns [spayd_string, svg_string] for the given Order. Caller embeds the SVG.
