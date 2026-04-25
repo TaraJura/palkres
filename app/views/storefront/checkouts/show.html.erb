@@ -1,68 +1,176 @@
 <% content_for :title, "Pokladna" %>
-<h1 class="text-3xl font-bold mb-6">Dokončení objednávky</h1>
+<h1 class="text-2xl md:text-3xl font-bold mb-5 md:mb-6">Dokončení objednávky</h1>
 
-<%= form_with url: storefront_checkout_path, method: :post, local: true, scope: :order, class: "grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8" do |f| %>
-  <div class="space-y-6">
-    <section class="bg-white border border-slate-200 rounded-2xl p-6">
-      <h2 class="font-semibold text-lg mb-4">Kontakt</h2>
-      <div class="grid grid-cols-2 gap-3">
-        <%= f.email_field :email, placeholder: "E-mail *", required: true, class: "col-span-2 border border-slate-200 rounded-lg px-4 py-2" %>
-        <%= f.telephone_field :phone, placeholder: "Telefon", class: "col-span-2 border border-slate-200 rounded-lg px-4 py-2" %>
+<%
+  shipping_options = [
+    { value: "packeta",     title: "Zásilkovna",   subtitle: "Výdejní místo · doručení 1–2 dny", price_cents: 69_00, icon: "📦", badge: "Nejoblíbenější" },
+    { value: "ceska_posta", title: "Česká pošta",  subtitle: "Balík Do ruky · doručení 1–3 dny", price_cents: 99_00, icon: "📮", badge: nil }
+  ]
+  payment_options = [
+    { value: "bank_transfer", title: "Bankovní převod", subtitle: "Pokyny + QR kód v e-mailu",                     icon: "🏦", badge: "Bez poplatků",
+      details: "Po obdržení platby zboží odešleme. VS najdete v potvrzení." },
+    { value: "gopay",         title: "Kartou / GoPay",  subtitle: "Visa, Mastercard, Apple Pay, Google Pay",        icon: "💳", badge: "Okamžitě",
+      details: "Platba proběhne online, expedujeme ihned po potvrzení." }
+  ]
+%>
+
+<%= form_with url: storefront_checkout_path, method: :post, local: true, scope: :order,
+              class: "grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 lg:gap-8" do |f| %>
+  <div class="space-y-5 md:space-y-6">
+
+    <%# ── 1. Kontakt ────────────────────────────────────────────────── %>
+    <section class="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-sm font-bold">1</span>
+        <h2 class="font-semibold text-lg">Kontakt</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <%= f.email_field :email, placeholder: "E-mail *", required: true, autocomplete: "email", inputmode: "email",
+                          class: "md:col-span-2 min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+        <%= f.telephone_field :phone, placeholder: "Telefon", autocomplete: "tel", inputmode: "tel",
+                              class: "md:col-span-2 min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
       </div>
     </section>
 
-    <section class="bg-white border border-slate-200 rounded-2xl p-6">
-      <h2 class="font-semibold text-lg mb-4">Fakturační adresa</h2>
+    <%# ── 2. Fakturační adresa ─────────────────────────────────────── %>
+    <section class="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-sm font-bold">2</span>
+        <h2 class="font-semibold text-lg">Fakturační adresa</h2>
+      </div>
       <%= f.fields_for :billing do |b| %>
-        <div class="grid grid-cols-2 gap-3">
-          <%= b.text_field :first_name, placeholder: "Jméno *",   required: true, class: "border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :last_name,  placeholder: "Příjmení *", required: true, class: "border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :company,    placeholder: "Firma",      class: "col-span-2 border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :ico,        placeholder: "IČO",        class: "border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :dic,        placeholder: "DIČ",        class: "border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :street,     placeholder: "Ulice a č. p. *", required: true, class: "col-span-2 border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :city,       placeholder: "Město *",    required: true, class: "border border-slate-200 rounded-lg px-4 py-2" %>
-          <%= b.text_field :postal_code, placeholder: "PSČ *",     required: true, class: "border border-slate-200 rounded-lg px-4 py-2" %>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <%= b.text_field :first_name, placeholder: "Jméno *",      required: true, autocomplete: "given-name",
+                           class: "min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :last_name,  placeholder: "Příjmení *",   required: true, autocomplete: "family-name",
+                           class: "min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :company,    placeholder: "Firma (volitelné)", autocomplete: "organization",
+                           class: "md:col-span-2 min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :ico,        placeholder: "IČO", inputmode: "numeric",
+                           class: "min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :dic,        placeholder: "DIČ",
+                           class: "min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :street,     placeholder: "Ulice a č. p. *", required: true, autocomplete: "street-address",
+                           class: "md:col-span-2 min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :city,       placeholder: "Město *", required: true, autocomplete: "address-level2",
+                           class: "min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+          <%= b.text_field :postal_code, placeholder: "PSČ *", required: true, autocomplete: "postal-code", inputmode: "numeric",
+                           class: "min-h-12 border border-slate-200 rounded-lg px-4 py-3 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
         </div>
       <% end %>
     </section>
 
-    <section class="bg-white border border-slate-200 rounded-2xl p-6">
-      <h2 class="font-semibold text-lg mb-4">Doprava a platba</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <label class="border border-slate-200 rounded-lg p-4 flex items-start gap-3 cursor-pointer hover:border-rose-400">
-          <%= f.radio_button :shipping_method, "packeta", checked: true %>
-          <div><div class="font-medium">Zásilkovna</div><div class="text-xs text-slate-500">Výdejní místo od 69 Kč</div></div>
-        </label>
-        <label class="border border-slate-200 rounded-lg p-4 flex items-start gap-3 cursor-pointer hover:border-rose-400">
-          <%= f.radio_button :shipping_method, "ceska_posta" %>
-          <div><div class="font-medium">Česká pošta</div><div class="text-xs text-slate-500">Balík Do ruky</div></div>
-        </label>
-        <label class="border border-slate-200 rounded-lg p-4 flex items-start gap-3 cursor-pointer hover:border-rose-400">
-          <%= f.radio_button :payment_method, "bank_transfer", checked: true %>
-          <div><div class="font-medium">Převodem</div><div class="text-xs text-slate-500">Pokyny e-mailem</div></div>
-        </label>
-        <label class="border border-slate-200 rounded-lg p-4 flex items-start gap-3 cursor-pointer hover:border-rose-400">
-          <%= f.radio_button :payment_method, "gopay" %>
-          <div><div class="font-medium">Kartou / GoPay</div><div class="text-xs text-slate-500">Okamžité</div></div>
-        </label>
+    <%# ── 3. Doprava ────────────────────────────────────────────────── %>
+    <section class="bg-white border-2 border-rose-100 rounded-2xl p-5 md:p-6">
+      <div class="flex items-center gap-3 mb-1">
+        <span class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-sm font-bold">3</span>
+        <h2 class="font-semibold text-lg">Způsob dopravy</h2>
       </div>
-      <%= f.text_area :notes, placeholder: "Poznámka k objednávce", class: "mt-4 w-full border border-slate-200 rounded-lg px-4 py-2 h-20" %>
+      <p class="text-sm text-slate-500 mb-4 ml-11">Vyberte, jak chcete zboží doručit.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <% shipping_options.each_with_index do |opt, i| %>
+          <label class="block relative cursor-pointer">
+            <%= f.radio_button :shipping_method, opt[:value], checked: i.zero?, class: "peer sr-only" %>
+            <div class="h-full border-2 border-slate-200 rounded-2xl p-4 pr-10 flex items-start gap-3 transition
+                        hover:border-rose-300 hover:bg-rose-50/30
+                        peer-checked:border-rose-500 peer-checked:bg-rose-50 peer-checked:shadow-sm
+                        peer-focus-visible:ring-2 peer-focus-visible:ring-rose-300">
+              <div class="text-3xl shrink-0" aria-hidden="true"><%= opt[:icon] %></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="font-semibold text-base"><%= opt[:title] %></span>
+                  <% if opt[:badge] %>
+                    <span class="text-[10px] uppercase tracking-wide font-bold bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5"><%= opt[:badge] %></span>
+                  <% end %>
+                </div>
+                <div class="text-sm text-slate-500 mt-0.5"><%= opt[:subtitle] %></div>
+                <div class="mt-2 font-bold text-rose-600"><%= format_price_cents(opt[:price_cents]) %></div>
+              </div>
+            </div>
+            <%# Indicator (sibling of peer ⇒ peer-checked: works) %>
+            <span aria-hidden="true"
+                  class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 border-slate-300 bg-white
+                         peer-checked:border-rose-600 peer-checked:bg-rose-600 transition
+                         flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+            </span>
+          </label>
+        <% end %>
+      </div>
+    </section>
+
+    <%# ── 4. Platba ────────────────────────────────────────────────── %>
+    <section class="bg-white border-2 border-emerald-100 rounded-2xl p-5 md:p-6">
+      <div class="flex items-center gap-3 mb-1">
+        <span class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white text-sm font-bold">4</span>
+        <h2 class="font-semibold text-lg">Způsob platby</h2>
+      </div>
+      <p class="text-sm text-slate-500 mb-4 ml-11">Jak chcete za objednávku zaplatit.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <% payment_options.each_with_index do |opt, i| %>
+          <label class="block relative cursor-pointer">
+            <%= f.radio_button :payment_method, opt[:value], checked: i.zero?, class: "peer sr-only" %>
+            <div class="h-full border-2 border-slate-200 rounded-2xl p-4 pr-10 flex flex-col gap-2 transition
+                        hover:border-emerald-300 hover:bg-emerald-50/30
+                        peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:shadow-sm
+                        peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-300">
+              <div class="flex items-start gap-3">
+                <div class="text-3xl shrink-0" aria-hidden="true"><%= opt[:icon] %></div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="font-semibold text-base"><%= opt[:title] %></span>
+                    <% if opt[:badge] %>
+                      <span class="text-[10px] uppercase tracking-wide font-bold bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5"><%= opt[:badge] %></span>
+                    <% end %>
+                  </div>
+                  <div class="text-sm text-slate-500 mt-0.5"><%= opt[:subtitle] %></div>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 leading-relaxed pl-12"><%= opt[:details] %></p>
+            </div>
+            <span aria-hidden="true"
+                  class="absolute top-3 right-3 w-6 h-6 rounded-full border-2 border-slate-300 bg-white
+                         peer-checked:border-emerald-600 peer-checked:bg-emerald-600 transition
+                         flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>
+            </span>
+          </label>
+        <% end %>
+      </div>
+    </section>
+
+    <%# ── 5. Poznámka ──────────────────────────────────────────────── %>
+    <section class="bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 inline-flex items-center justify-center rounded-full bg-slate-300 text-white text-sm font-bold">5</span>
+        <h2 class="font-semibold text-lg">Poznámka <span class="text-sm font-normal text-slate-400">(volitelné)</span></h2>
+      </div>
+      <%= f.text_area :notes, placeholder: "Speciální požadavek, vzkaz pro nás…",
+                      class: "w-full border border-slate-200 rounded-lg px-4 py-3 h-24 text-base focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
     </section>
   </div>
 
-  <aside class="bg-white border border-slate-200 rounded-2xl p-6 h-fit sticky top-20">
-    <h2 class="font-semibold mb-4">Souhrn</h2>
+  <%# ── Souhrn (sticky aside on lg, normal block on phones) ────────── %>
+  <aside class="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 h-fit lg:sticky lg:top-20">
+    <h2 class="font-semibold mb-4">Souhrn objednávky</h2>
     <ul class="space-y-2 text-sm">
       <% @cart.cart_items.includes(:product).each do |item| %>
-        <li class="flex justify-between gap-3"><span><%= item.product.name %> × <%= item.quantity %></span><span class="font-medium whitespace-nowrap"><%= format_price_cents(item.line_total_cents) %></span></li>
+        <li class="flex justify-between gap-3">
+          <span class="min-w-0">
+            <span class="line-clamp-2 block"><%= item.product.name %></span>
+            <span class="text-xs text-slate-500"><%= item.quantity %> × <%= format_price_cents(item.unit_price_cents) %></span>
+          </span>
+          <span class="font-medium whitespace-nowrap shrink-0"><%= format_price_cents(item.line_total_cents) %></span>
+        </li>
       <% end %>
     </ul>
     <div class="border-t border-slate-200 mt-4 pt-4 space-y-1 text-sm">
       <div class="flex justify-between"><span>Mezisoučet</span><span><%= format_price_cents(@cart.subtotal_cents) %></span></div>
-      <div class="flex justify-between"><span>Doprava (orient.)</span><span>99,00 Kč</span></div>
-      <div class="flex justify-between font-bold text-lg mt-2"><span>Celkem</span><span><%= format_price_cents(@cart.subtotal_cents + 9900) %></span></div>
+      <div class="flex justify-between text-slate-500"><span>Doprava (orient.)</span><span>99,00 Kč</span></div>
+      <div class="flex justify-between font-bold text-lg pt-2 border-t border-slate-100 mt-2"><span>Celkem</span><span><%= format_price_cents(@cart.subtotal_cents + 9900) %></span></div>
     </div>
-    <%= f.submit "Odeslat objednávku", class: "mt-6 w-full bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-full px-6 py-3 cursor-pointer" %>
+    <%= f.submit "Odeslat objednávku",
+                 class: "mt-5 w-full min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold rounded-full px-6 py-3 cursor-pointer text-base" %>
+    <p class="text-xs text-slate-400 mt-3 text-center">Stisknutím potvrzujete závaznou objednávku.</p>
   </aside>
 <% end %>

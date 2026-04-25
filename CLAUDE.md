@@ -220,6 +220,14 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Checkout: Doprava + Platba split into separate sections
+- Old UX: shipping + payment options were mixed in a single 2-column grid under one "Doprava a platba" heading. Looked like 4 mutually-exclusive options instead of "pick one shipping AND one payment".
+- New UX (`app/views/storefront/checkouts/show.html.erb`): five numbered steps (Kontakt 1, Fakturační adresa 2, Způsob dopravy 3, Způsob platby 4, Poznámka 5) with rose number badges. Sections 3 and 4 are visually distinct: step 3 has rose-100 outline + rose number badge, step 4 has emerald-100 outline + emerald number badge — so the eye instantly groups them as separate decisions.
+- Each option is a big card: large emoji icon, title + colored selected-state badge ("Nejoblíbenější", "Bez poplatků", "Okamžitě"), subtitle, price (shipping) or detailed description (payment). Selected state: 2-px colored border, tinted background (`bg-rose-50` / `bg-emerald-50`), shadow, and a filled circular checkmark indicator in the top-right corner.
+- Selected-state CSS via Tailwind `peer:`/`peer-checked:` variants only — no JS. The hidden radio (`peer sr-only`) is a sibling of both the card `<div>` and the indicator `<span>`, so the checkmark uses `peer-checked:bg-rose-600 peer-checked:border-rose-600` directly. (Earlier attempt used `peer-checked:group-[]:` for a nested SVG and didn't work — peer variants only reach siblings.)
+- Inputs got mobile improvements too: `min-h-12`, proper `autocomplete=` (email/tel/given-name/…), `inputmode=` for numeric fields, focus rose ring; required-asterisk markers preserved.
+- Submit button: full-width rose pill 48 px tall with "Stisknutím potvrzujete závaznou objednávku" subtitle.
+
 ### 2026-04-25 — Confirmation e-mail + Czech QR-platba (SPAYD)
 - New `Payments::CzechQr` service (`app/services/payments/czech_qr.rb`) builds a SPAYD-1.0 payload (`SPD*1.0*ACC:<IBAN>*AM:…*CC:CZK*X-VS:…*MSG:…*RN:Palkres s.r.o.`) and renders an inline SVG via `rqrcode 3.0`. Standard scannable by Air Bank, ČS, KB, Raiffeisen, Fio etc.
 - Bank account configured via `.env`: `PALKRES_BANK_IBAN` (default `CZ6508000000192000145399` placeholder — **swap before going live with real Palkres IBAN**), `PALKRES_BANK_NAME`. `Payments::CzechQr.available?` guards against missing/invalid IBAN.
