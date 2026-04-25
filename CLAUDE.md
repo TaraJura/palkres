@@ -98,6 +98,27 @@ per product → `product_categories` is many-to-many.
 ### 9. Working on `main` only
 Don't create feature branches unless explicitly asked.
 
+### 10. Mobile-first is non-negotiable — every UI change MUST start at the phone
+Most Czech e-shop traffic is mobile. The phone breakpoint is the **default**, the desktop layout is the *enhancement* — never the other way around.
+
+**Hard rules for any view, partial, or component:**
+
+- **Default styles target phones (<640 px)**. Use Tailwind's `sm:`, `md:`, `lg:`, `xl:` modifiers to *add* desktop affordances. Do not write desktop-first CSS and patch in `max-w-*:` overrides.
+- **Tap targets ≥ 44×44 px** (Apple HIG / WCAG 2.5.5 minimum). Buttons, links inside lists, icon-only controls — all must hit this size on touch.
+- **Single-column by default**, multi-column only at `md:` (768 px) or larger. Tables on mobile must collapse to stacked card rows or be horizontally scrollable inside `overflow-x-auto`.
+- **No hover-only interactions** — hover state may add polish on desktop, but every action must work via tap. No tooltips that hold critical info.
+- **Sticky headers / footers** must not eat more than ~64 px of viewport height on mobile. The cart bar, search bar, and header logo each have a budget — don't pile up.
+- **Forms**: label above field (not beside), full-width inputs, `type="email" | "tel" | "number" | "search"` to surface the correct mobile keyboard. Never rely on placeholder as label.
+- **Images**: `loading="lazy"`, `object-contain` inside fixed aspect-ratio boxes, `srcset` once we cache locally — phone bandwidth matters.
+- **Font sizes**: body ≥ 14 px on phones (Tailwind `text-sm` is 14 px — that's the floor), price/CTA ≥ 16 px, headlines scale up at `md:`.
+- **Test recipe before merging any UI change**:
+  1. DevTools → toggle device → iPhone 14 (390 px) and Galaxy S23 (412 px).
+  2. Verify: nothing horizontal-scrolls, every button is tappable, header doesn't eat the page, cart counter stays visible, forms aren't squashed.
+  3. Then check `md:` (768 px) and `lg:` (1024 px) — desktop should *gain* features, not break.
+- **Lighthouse mobile** score should stay ≥ 85 for Performance and ≥ 95 for Accessibility on the home, category, and product pages. Run before shipping a major UI change.
+
+When in doubt, *open the page on your phone first*. If the phone view feels cramped, broken, or hostile to touch, the change is not done.
+
 ## Data model
 
 | Model | Key fields |
@@ -170,6 +191,10 @@ sudo journalctl -u palkres-eshop.service -f
 ## Post-launch change log
 
 Newest at top. Every non-trivial production change should append an entry here.
+
+### 2026-04-25 — Core rule: mobile-first
+- Added "Rule 10: Mobile-first is non-negotiable" to **Critical project rules**. Every view, partial, and component must start at the phone breakpoint and *enhance* upward via `sm:`/`md:`/`lg:`. Tap targets ≥ 44×44 px, single-column by default, no hover-only actions, body text ≥ 14 px, Lighthouse mobile ≥ 85 perf / 95 a11y.
+- Pre-merge test recipe: DevTools at iPhone 14 (390 px) + Galaxy S23 (412 px), then 768 px + 1024 px.
 
 ### 2026-04-25 — Pretty pagination
 - Replaced bare `pagy_nav` (default `<a>1</a><a>…</a>` strip) with a Tailwind-styled paginator across storefront + admin.
