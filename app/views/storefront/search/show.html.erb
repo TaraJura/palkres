@@ -1,174 +1,198 @@
 <% content_for :title, @query.present? ? "Hledat: #{@query}" : "Vyhledávání" %>
 
 <%
-  # Preserve current filters when building filter-toggle links
-  base_params = request.query_parameters.reject { |k, _| k.to_s == "page" }
-
+  base_params = request.query_parameters.reject { |k, _| k.to_s == "page" }.symbolize_keys
   price_min_czk = @price_range[0].to_i / 100
   price_max_czk = @price_range[1].to_i / 100
   has_filters = params[:manufacturer_id].present? || params[:in_stock] == "1" ||
                 params[:price_min].present? || params[:price_max].present?
 %>
 
-<div class="bg-gradient-to-br from-rose-50 via-white to-amber-50 rounded-2xl p-6 md:p-8 mb-6">
-  <h1 class="text-3xl font-bold">Vyhledávání</h1>
-  <%= form_with url: search_path, method: :get, local: true, class: "mt-4 flex gap-2" do |f| %>
+<%# ── Hero ─────────────────────────────────────────────────────────── %>
+<section class="bg-gradient-to-br from-rose-50 via-white to-amber-50 rounded-2xl p-5 md:p-8 mb-5">
+  <h1 class="text-2xl md:text-3xl font-bold">Vyhledávání</h1>
+  <%= form_with url: search_path, method: :get, local: true,
+                class: "mt-4 flex flex-col sm:flex-row gap-2" do |f| %>
     <div class="flex-1 relative">
       <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <%= f.text_field :q, value: @query, placeholder: "Hledat produkt, výrobce, SKU, EAN…", autofocus: @query.blank?,
-                       class: "w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-full focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100" %>
+      <%= f.search_field :q, value: @query, placeholder: "Hledat produkt, výrobce, SKU, EAN…",
+                         autocomplete: "off", inputmode: "search",
+                         class: "w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-full focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 text-base" %>
     </div>
-    <%= f.submit "Hledat", class: "bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-full px-6 py-3 cursor-pointer" %>
+    <%= f.submit "Hledat",
+                 class: "min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-medium rounded-full px-6 py-3 cursor-pointer text-base" %>
   <% end %>
   <% if @query.present? %>
     <p class="mt-3 text-sm text-slate-600">
-      Nalezeno <strong><%= @total_before_facets %></strong> produktů pro <strong>„<%= @query %>"</strong>
+      Nalezeno <strong><%= @total_before_facets %></strong>
+      <% if @query.present? %> pro <strong>„<%= @query %>"</strong><% end %>
     </p>
   <% end %>
-</div>
+</section>
 
-<% if @total_before_facets.zero? %>
-  <div class="bg-white border border-slate-200 rounded-2xl p-12 text-center">
-    <div class="text-6xl mb-4">🔍</div>
-    <h2 class="text-xl font-semibold mb-2">Nic jsme nenašli</h2>
-    <p class="text-slate-500 mb-6 max-w-md mx-auto">
-      <% if @query.present? %>
-        Pro výraz <strong>„<%= @query %>"</strong> nemáme žádný produkt. Zkontrolujte překlepy, zkuste obecnější výraz nebo prohledejte celý sortiment.
-      <% else %>
-        Zadejte, co hledáte — produkt, značku, kódy SKU nebo EAN.
-      <% end %>
+<% if @query.blank? && !has_filters %>
+  <%# ── Empty: no query, no filters → suggest categories ── %>
+  <section class="bg-white border border-slate-200 rounded-2xl p-6 md:p-10 text-center">
+    <div class="text-5xl mb-3">🎨</div>
+    <h2 class="text-xl font-semibold mb-2">Co hledáte?</h2>
+    <p class="text-slate-500 mb-5 max-w-md mx-auto text-sm md:text-base">
+      Zadejte produkt, značku, SKU nebo EAN. Nebo se podívejte do kategorií.
     </p>
-    <% if @query.present? %>
-      <%= link_to "Zobrazit celý katalog", root_path, class: "inline-block bg-rose-600 hover:bg-rose-700 text-white rounded-full px-5 py-2.5 font-medium" %>
-    <% end %>
     <% if @root_categories.any? %>
-      <div class="mt-8">
-        <div class="text-xs uppercase text-slate-400 mb-3">Nebo vyberte kategorii</div>
-        <div class="flex flex-wrap gap-2 justify-center">
-          <% @root_categories.first(8).each do |c| %>
-            <%= link_to c.name, category_path_for(c), class: "bg-slate-100 hover:bg-rose-100 text-sm rounded-full px-3 py-1.5" %>
-          <% end %>
-        </div>
+      <div class="flex flex-wrap gap-2 justify-center">
+        <% @root_categories.first(10).each do |c| %>
+          <%= link_to c.name, category_path_for(c),
+                      class: "min-h-11 inline-flex items-center bg-slate-100 hover:bg-rose-100 text-sm rounded-full px-4 py-2" %>
+        <% end %>
       </div>
     <% end %>
-  </div>
+  </section>
+<% elsif @total_before_facets.zero? %>
+  <%# ── No results ── %>
+  <section class="bg-white border border-slate-200 rounded-2xl p-6 md:p-12 text-center">
+    <div class="text-5xl md:text-6xl mb-3">🔍</div>
+    <h2 class="text-xl font-semibold mb-2">Nic jsme nenašli</h2>
+    <p class="text-slate-500 mb-5 max-w-md mx-auto text-sm md:text-base">
+      Pro výraz <strong>„<%= @query %>"</strong> nemáme žádný produkt. Zkontrolujte překlepy, zkuste obecnější výraz nebo prohledejte celý sortiment.
+    </p>
+    <%= link_to "Zobrazit celý katalog", root_path,
+                class: "inline-flex items-center justify-center min-h-11 bg-rose-600 hover:bg-rose-700 text-white rounded-full px-5 py-2.5 font-medium" %>
+  </section>
 <% else %>
-  <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
-    <aside class="space-y-5">
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 sticky top-20">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold">Filtry</h2>
+  <%# ── Results: filters + grid ── %>
+  <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
+    <aside class="lg:sticky lg:top-20 lg:self-start">
+      <details class="bg-white border border-slate-200 rounded-2xl lg:open" <%= "open" if has_filters %>>
+        <summary class="flex items-center justify-between gap-2 p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden lg:cursor-default">
+          <span class="flex items-center gap-2 font-semibold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
+            Filtry
+            <% if has_filters %>
+              <span class="bg-rose-600 text-white text-xs rounded-full px-2 py-0.5">aktivní</span>
+            <% end %>
+          </span>
+          <span class="lg:hidden text-slate-400 text-xl leading-none transition group-open:rotate-180">⌄</span>
+        </summary>
+
+        <div class="px-4 pb-4 space-y-5 border-t border-slate-100 pt-4">
           <% if has_filters %>
-            <%= link_to "× vyčistit", search_path(q: @query), class: "text-xs text-rose-600 hover:underline" %>
+            <div>
+              <%= link_to "× Vyčistit všechny filtry", search_path(q: @query),
+                          class: "block text-sm text-rose-600 hover:underline" %>
+            </div>
+          <% end %>
+
+          <%= form_with url: search_path, method: :get, local: true, class: "space-y-4" do |f| %>
+            <%= hidden_field_tag :q, @query %>
+            <%= hidden_field_tag :sort, @sort %>
+
+            <div>
+              <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">Cena (Kč)</div>
+              <div class="flex items-center gap-2">
+                <%= number_field_tag :price_min, params[:price_min], placeholder: "od", min: 0, inputmode: "numeric",
+                                     class: "w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base" %>
+                <span class="text-slate-400">–</span>
+                <%= number_field_tag :price_max, params[:price_max], placeholder: "do", min: 0, inputmode: "numeric",
+                                     class: "w-full min-h-11 border border-slate-200 rounded-lg px-3 py-2 text-base" %>
+              </div>
+              <div class="text-xs text-slate-400 mt-1">Rozsah: <%= price_min_czk %> – <%= price_max_czk %> Kč</div>
+            </div>
+
+            <label class="flex items-center gap-3 min-h-11 cursor-pointer select-none">
+              <%= check_box_tag :in_stock, "1", params[:in_stock] == "1",
+                                class: "w-5 h-5 text-rose-600 border-slate-300 rounded focus:ring-rose-400" %>
+              <span class="text-base">Pouze skladem</span>
+            </label>
+
+            <%= f.submit "Použít filtry",
+                         class: "w-full min-h-12 bg-slate-900 hover:bg-rose-600 active:bg-rose-700 text-white rounded-full text-base font-medium cursor-pointer" %>
+          <% end %>
+
+          <% if @manufacturer_facets.any? %>
+            <div class="pt-4 border-t border-slate-100">
+              <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">Výrobce</div>
+              <ul class="space-y-0.5 max-h-72 overflow-y-auto -mx-2">
+                <% @manufacturer_facets.each do |mid, mname, count| %>
+                  <li>
+                    <% if params[:manufacturer_id].to_i == mid %>
+                      <%= link_to search_path(base_params.except(:manufacturer_id)),
+                                  class: "flex items-center justify-between rounded-lg px-3 min-h-11 bg-rose-100 text-rose-800 font-medium" do %>
+                        <span class="truncate">✓ <%= mname %></span><span class="text-xs ml-2"><%= count %></span>
+                      <% end %>
+                    <% else %>
+                      <%= link_to search_path(base_params.merge(manufacturer_id: mid)),
+                                  class: "flex items-center justify-between rounded-lg px-3 min-h-11 hover:bg-slate-50 active:bg-slate-100" do %>
+                        <span class="truncate"><%= mname %></span><span class="text-xs text-slate-400 ml-2"><%= count %></span>
+                      <% end %>
+                    <% end %>
+                  </li>
+                <% end %>
+              </ul>
+            </div>
           <% end %>
         </div>
-
-        <%= form_with url: search_path, method: :get, local: true, class: "space-y-5" do |f| %>
-          <%= hidden_field_tag :q, @query %>
-          <%= hidden_field_tag :sort, @sort %>
-
-          <div>
-            <div class="text-xs uppercase text-slate-500 mb-2">Cena (Kč)</div>
-            <div class="flex items-center gap-2">
-              <%= number_field_tag :price_min, params[:price_min], placeholder: "od", min: 0,
-                                   class: "w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm" %>
-              <span class="text-slate-400">–</span>
-              <%= number_field_tag :price_max, params[:price_max], placeholder: "do", min: 0,
-                                   class: "w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm" %>
-            </div>
-            <div class="text-xs text-slate-400 mt-1">Rozsah: <%= price_min_czk %> – <%= price_max_czk %> Kč</div>
-          </div>
-
-          <label class="flex items-center gap-2 cursor-pointer">
-            <%= check_box_tag :in_stock, "1", params[:in_stock] == "1",
-                              class: "w-4 h-4 text-rose-600 border-slate-300 rounded focus:ring-rose-400" %>
-            <span class="text-sm">Pouze skladem</span>
-          </label>
-
-          <%= f.submit "Filtrovat", class: "w-full bg-slate-900 hover:bg-rose-600 text-white rounded-full py-2 text-sm cursor-pointer" %>
-        <% end %>
-
-        <% if @manufacturer_facets.any? %>
-          <div class="mt-5 pt-5 border-t border-slate-100">
-            <div class="text-xs uppercase text-slate-500 mb-2">Výrobce</div>
-            <ul class="space-y-1 max-h-72 overflow-y-auto text-sm">
-              <% @manufacturer_facets.each do |mid, mname, count| %>
-                <li>
-                  <% if params[:manufacturer_id].to_i == mid %>
-                    <%= link_to url_for(base_params.except(:manufacturer_id).merge(only_path: true)),
-                                class: "flex items-center justify-between rounded px-2 py-1 bg-rose-100 text-rose-800 font-medium" do %>
-                      <span>✓ <%= mname %></span><span class="text-xs"><%= count %></span>
-                    <% end %>
-                  <% else %>
-                    <%= link_to url_for(base_params.merge(manufacturer_id: mid, only_path: true)),
-                                class: "flex items-center justify-between rounded px-2 py-1 hover:bg-slate-50" do %>
-                      <span><%= mname %></span><span class="text-xs text-slate-400"><%= count %></span>
-                    <% end %>
-                  <% end %>
-                </li>
-              <% end %>
-            </ul>
-          </div>
-        <% end %>
-      </div>
+      </details>
     </aside>
 
     <div>
-      <div class="bg-white border border-slate-200 rounded-2xl px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div class="text-sm text-slate-600">
-          <%== pagy_info(@pagy, item_name: "produktů") %>
+      <%# Active chips + sort: stacks on mobile, single row on md+ %>
+      <div class="bg-white border border-slate-200 rounded-2xl p-3 mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex items-center gap-2 flex-wrap text-sm text-slate-600 min-w-0">
+          <span class="whitespace-nowrap"><%== pagy_info(@pagy, item_name: "produktů") %></span>
           <% if has_filters %>
-            <span class="ml-2 flex flex-wrap gap-1 inline-flex">
-              <% if @selected_manufacturer %>
-                <%= link_to url_for(base_params.except(:manufacturer_id).merge(only_path: true)),
-                            class: "inline-flex items-center gap-1 bg-rose-50 text-rose-700 rounded-full px-2 py-0.5 text-xs hover:bg-rose-100" do %>
-                  <%= @selected_manufacturer.name %> ×
-                <% end %>
+            <% if @selected_manufacturer %>
+              <%= link_to search_path(base_params.except(:manufacturer_id)),
+                          class: "inline-flex items-center gap-1 bg-rose-50 text-rose-700 rounded-full px-3 min-h-8 text-xs hover:bg-rose-100 whitespace-nowrap" do %>
+                <%= @selected_manufacturer.name %> <span class="text-rose-400">×</span>
               <% end %>
-              <% if params[:in_stock] == "1" %>
-                <%= link_to url_for(base_params.except(:in_stock).merge(only_path: true)),
-                            class: "inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 rounded-full px-2 py-0.5 text-xs hover:bg-emerald-100" do %>
-                  skladem ×
-                <% end %>
+            <% end %>
+            <% if params[:in_stock] == "1" %>
+              <%= link_to search_path(base_params.except(:in_stock)),
+                          class: "inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 rounded-full px-3 min-h-8 text-xs hover:bg-emerald-100 whitespace-nowrap" do %>
+                skladem <span class="text-emerald-400">×</span>
               <% end %>
-              <% if params[:price_min].present? || params[:price_max].present? %>
-                <%= link_to url_for(base_params.except(:price_min, :price_max).merge(only_path: true)),
-                            class: "inline-flex items-center gap-1 bg-amber-50 text-amber-800 rounded-full px-2 py-0.5 text-xs hover:bg-amber-100" do %>
-                  <%= "#{params[:price_min].presence || 0}–#{params[:price_max].presence || '∞'} Kč" %> ×
-                <% end %>
+            <% end %>
+            <% if params[:price_min].present? || params[:price_max].present? %>
+              <%= link_to search_path(base_params.except(:price_min, :price_max)),
+                          class: "inline-flex items-center gap-1 bg-amber-50 text-amber-800 rounded-full px-3 min-h-8 text-xs hover:bg-amber-100 whitespace-nowrap" do %>
+                <%= "#{params[:price_min].presence || 0}–#{params[:price_max].presence || '∞'} Kč" %> <span class="text-amber-500">×</span>
               <% end %>
-            </span>
+            <% end %>
           <% end %>
         </div>
-        <%= form_with url: search_path, method: :get, local: true, class: "flex items-center gap-2 text-sm" do |f| %>
-          <% base_params.each do |k, v| %>
-            <%= hidden_field_tag k, v unless k.to_s == "sort" %>
+
+        <%= form_with url: search_path, method: :get, local: true,
+                      class: "flex items-center gap-2 text-sm shrink-0" do |f| %>
+          <% base_params.except(:sort, :page).each do |k, v| %>
+            <%= hidden_field_tag k, v %>
           <% end %>
-          <label class="text-slate-500">Seřadit</label>
+          <label for="sort_select" class="text-slate-500 whitespace-nowrap">Seřadit:</label>
           <%= select_tag :sort,
                 options_for_select(
                   [
-                    ["Relevance",        "relevance"],
-                    ["Název: A–Z",       "name_asc"],
-                    ["Název: Z–A",       "name_desc"],
-                    ["Cena: nejnižší",   "price_asc"],
-                    ["Cena: nejvyšší",   "price_desc"],
-                    ["Nejnovější",       "newest"]
+                    ["Relevance",      "relevance"],
+                    ["Název: A–Z",     "name_asc"],
+                    ["Název: Z–A",     "name_desc"],
+                    ["Cena: nejnižší", "price_asc"],
+                    ["Cena: nejvyšší", "price_desc"],
+                    ["Nejnovější",     "newest"]
                   ], @sort
                 ),
+                id: "sort_select",
                 onchange: "this.form.submit()",
-                class: "border border-slate-200 rounded-lg px-3 py-1.5" %>
+                class: "min-h-10 border border-slate-200 rounded-lg px-3 py-1.5 text-base bg-white" %>
         <% end %>
       </div>
 
       <% if @products.any? %>
-        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
           <%= render partial: "storefront/products/card", collection: @products, as: :product %>
         </div>
         <%= pagy_nav_pretty(@pagy) %>
       <% else %>
-        <div class="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-          Pro zadané filtry není žádný produkt. Zkuste je uvolnit.
+        <div class="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500">
+          <div class="text-4xl mb-2">😕</div>
+          <p>Pro tyto filtry není žádný produkt. Zkuste je uvolnit.</p>
         </div>
       <% end %>
     </div>

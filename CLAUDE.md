@@ -220,6 +220,15 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Mobile blocker fix + search UX redesign
+- **🚨 Production blocker found and removed**: `ApplicationController` had Rails 8's `allow_browser versions: :modern`, which was returning **HTTP 406 "Your browser is not supported"** to every iOS Safari user. Verified via `curl -A` with iPhone UA: blocked. Android Chrome and desktop worked. Removed the directive entirely (`app/controllers/application_controller.rb`); no current feature requires the bleeding-edge CSS `:has` / web-push surface that the `:modern` preset enforces. If a floor is ever needed, use a specific version map, not the `:modern` preset.
+- **Header redesign for mobile** (`app/views/layouts/application.html.erb`): cart was previously `hidden md:flex` — invisible on phones. Now compact cart pill with shopping-cart SVG + counter is visible at every breakpoint, login becomes an icon-only button on mobile, search field auto-resizes (`flex-1 min-w-0`), header height ≤ ~64 px on mobile.
+- **Search page mobile-first redesign** (`app/views/storefront/search/show.html.erb`): three distinct page states — empty (categories suggestion), no-results (friendly empty state), with-results (filter sidebar + grid). Filter sidebar is now a `<details>` element collapsed by default on mobile, always-open on `lg:`+. Tap targets bumped to `min-h-11` (44 px) on every facet row, sort dropdown, price inputs, submit buttons. Active-filter chips use whitespace-nowrap so they don't squish. Empty state CTAs sized to WCAG 2.5.5 minimums.
+- **Sort form fix**: hidden inputs now correctly preserve all params except `sort` and `page`, so changing sort doesn't drop the query or filters.
+- **Re-ran `bin/rails assets:precompile`** to regenerate Tailwind 4 CSS — new utility classes (`min-h-11`, `min-h-12`, `inputmode`, etc.) are now in the built stylesheet.
+
+Verified post-deploy with `curl -A "Mozilla/5.0 (iPhone…)"` against `/`, `/hledat`, `/hledat?q=stabilo`, `/kategorie/*`, `/produkt/*`, `/kosik` — all 200, all serve real HTML.
+
 ### 2026-04-25 — Core rule 11: document every change in this file
 - Added Rule 11 to **Critical project rules**: every production change must leave a Post-launch change log entry, with intent + root cause + file-path summary + side effects. Architect/main-developer role (Claude Code under Jiří's direction) is named explicitly so the responsibility is unambiguous.
 - Strengthens the older "How to log a new change" section by making it a *binding rule* rather than a suggestion.
