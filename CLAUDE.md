@@ -220,6 +220,13 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-25 — Cart add-to-cart off-by-one (qty=2 on first add)
+- Bug: clicking "Vložit do košíku" once added quantity = 2, not 1. Each subsequent click also +2.
+- Root cause: the cart_items migration used `t.integer :quantity, null: false, default: 1`, so `cart_items.find_or_initialize_by(product_id: …)` returns an in-memory object whose `quantity` is **already 1** (the DB default applied by Active Record). My old code did `item.quantity = item.quantity.to_i + quantity`, turning 1 + 1 = 2 on a fresh row.
+- Fix (`app/models/cart.rb`): branch on persistence — `item.quantity = item.persisted? ? item.quantity.to_i + quantity : quantity`. Existing rows still increment; new rows are set to the requested quantity exactly.
+- Regression test in console: 1st add (q=1) → 1; 2nd add (q=1) → 2; 3rd add (q=3) → 5; fresh product (q=1) → 1. All pass.
+- Wiped CartItem + Cart in production after the fix landed; user's bad-state carts cleared.
+
 ### 2026-04-25 — Mobile blocker fix + search UX redesign
 - **🚨 Production blocker found and removed**: `ApplicationController` had Rails 8's `allow_browser versions: :modern`, which was returning **HTTP 406 "Your browser is not supported"** to every iOS Safari user. Verified via `curl -A` with iPhone UA: blocked. Android Chrome and desktop worked. Removed the directive entirely (`app/controllers/application_controller.rb`); no current feature requires the bleeding-edge CSS `:has` / web-push surface that the `:modern` preset enforces. If a floor is ever needed, use a specific version map, not the `:modern` preset.
 - **Header redesign for mobile** (`app/views/layouts/application.html.erb`): cart was previously `hidden md:flex` — invisible on phones. Now compact cart pill with shopping-cart SVG + counter is visible at every breakpoint, login becomes an icon-only button on mobile, search field auto-resizes (`flex-1 min-w-0`), header height ≤ ~64 px on mobile.

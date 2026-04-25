@@ -13,7 +13,7 @@ class Cart < ApplicationRecord
 
   def add_product(product, quantity: 1)
     item = cart_items.find_or_initialize_by(product_id: product.id)
-    item.quantity = item.quantity.to_i + quantity
+    item.quantity = item.persisted? ? item.quantity.to_i + quantity : quantity
     item.unit_price_cents = product.price_retail_cents
     item.save!
     item
