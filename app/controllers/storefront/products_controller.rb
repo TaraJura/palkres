@@ -4,6 +4,11 @@ class Storefront::ProductsController < Storefront::BaseController
     @primary_category = @product.categories.joins(:product_categories)
                                 .where(product_categories: { primary: true, product_id: @product.id })
                                 .first || @product.categories.first
+    @variants = if @product.has_variants?
+      @product.variants.includes(:manufacturer, :product_images).order(:name)
+    else
+      Product.none
+    end
     @related = related_products
     ImageCacherJob.perform_later(@product.id) if @product.product_images.exists?(cached: false)
   end

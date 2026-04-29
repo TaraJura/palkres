@@ -1,20 +1,21 @@
 <% content_for :title, "#{@product.name} — Palkres" %>
 
-<nav class="text-sm text-slate-500 mb-4">
+<nav class="text-sm text-slate-500 mb-4 flex flex-wrap items-center gap-1">
   <%= link_to "Domů", root_path, class: "hover:text-rose-600" %>
   <% if @primary_category %>
     <% @primary_category.path.each do |p| %>
-      <span class="mx-1">›</span>
+      <span class="text-slate-300">›</span>
       <%= link_to p.name, category_path_for(p), class: "hover:text-rose-600" %>
     <% end %>
   <% end %>
-  <span class="mx-1">›</span><span class="text-slate-900"><%= @product.name %></span>
+  <span class="text-slate-300">›</span>
+  <span class="text-slate-900"><%= @product.name %></span>
 </nav>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white border border-slate-200 rounded-2xl p-6">
-  <div class="bg-slate-50 rounded-xl flex items-center justify-center aspect-square p-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 bg-white border border-slate-200 rounded-2xl p-5 md:p-6">
+  <div class="bg-slate-50 rounded-xl flex items-center justify-center aspect-square p-6 md:p-8">
     <% if @product.primary_image_url %>
-      <img src="<%= @product.primary_image_url %>" alt="<%= @product.name %>" class="max-h-full max-w-full object-contain">
+      <img src="<%= @product.primary_image_url %>" alt="<%= @product.name %>" class="max-h-full max-w-full object-contain" loading="lazy">
     <% else %>
       <div class="text-slate-300 text-6xl">⋯</div>
     <% end %>
@@ -23,7 +24,7 @@
     <% if @product.manufacturer %>
       <div class="text-xs uppercase text-slate-400 font-semibold"><%= @product.manufacturer.name %></div>
     <% end %>
-    <h1 class="text-3xl font-bold mt-1"><%= @product.name %></h1>
+    <h1 class="text-2xl md:text-3xl font-bold mt-1 leading-tight"><%= @product.name %></h1>
     <div class="mt-2 text-sm text-slate-500">
       <% if @product.sku.present? %>Kód: <span class="font-mono"><%= @product.sku %></span>&nbsp;&nbsp;<% end %>
       <% if @product.ean.present? %>EAN: <span class="font-mono"><%= @product.ean %></span><% end %>
@@ -46,17 +47,130 @@
     </div>
 
     <%= form_with url: add_kosik_path(product_id: @product.id), method: :post, class: "mt-6 flex gap-3" do |f| %>
-      <%= f.number_field :quantity, value: 1, min: 1, max: 99, class: "w-20 border border-slate-200 rounded-full px-4 py-3 text-center" %>
-      <%= f.submit "Vložit do košíku", class: "flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-full px-6 py-3 cursor-pointer" %>
+      <%= f.number_field :quantity, value: 1, min: 1, max: 99, inputmode: "numeric",
+                         class: "w-20 min-h-12 border border-slate-200 rounded-full px-4 py-3 text-center text-base" %>
+      <%= f.submit "Vložit do košíku",
+                   class: "flex-1 min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold rounded-full px-6 py-3 cursor-pointer" %>
     <% end %>
 
-    <div class="mt-8 prose prose-sm max-w-none text-slate-700">
-      <%= sanitize(@product.description_html.presence || @product.description_short.to_s,
-                   tags: %w[p br strong em ul ol li span h2 h3 h4 a],
-                   attributes: %w[href style]) %>
-    </div>
+    <% if @variants.any? %>
+      <p class="mt-4 text-sm text-slate-500">
+        Tento produkt je dostupný v <strong><%= @variants.size %></strong>
+        <%= @variants.size == 1 ? "variantě" : (@variants.size <= 4 ? "variantách" : "variantách") %>.
+        <a href="#varianty" class="text-rose-600 hover:underline font-medium">Zobrazit všechny varianty ↓</a>
+      </p>
+    <% end %>
+
+    <% if @product.description_html.present? || @product.description_short.present? %>
+      <div class="mt-8 prose prose-sm max-w-none text-slate-700">
+        <%= sanitize(@product.description_html.presence || @product.description_short.to_s,
+                     tags: %w[p br strong em ul ol li span h2 h3 h4 a],
+                     attributes: %w[href style]) %>
+      </div>
+    <% end %>
   </div>
 </div>
+
+<%# ── Variant grid: bulk-add to cart for paint families etc. ────────── %>
+<% if @variants.any? %>
+  <% family = @product.variant_family_name %>
+  <section id="varianty" class="mt-8 md:mt-10 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+    <header class="p-5 md:p-6 border-b border-slate-100 bg-gradient-to-br from-rose-50 via-white to-amber-50">
+      <div class="text-xs uppercase tracking-wide text-rose-600 font-semibold mb-1">Vyberte varianty</div>
+      <h2 class="text-xl md:text-2xl font-bold leading-tight"><%= family %></h2>
+      <p class="text-sm text-slate-600 mt-1">
+        Označte počet kusů u libovolných variant a vložte je do košíku jedním tlačítkem.
+        Celkem <strong><%= @variants.size %></strong> variant.
+      </p>
+    </header>
+
+    <%= form_with url: bulk_add_kosik_path, method: :post, local: true,
+                  data: { controller: "variant-picker" },
+                  class: "" do |f| %>
+
+      <%# ── Mobile / tablet: stacked rows. Desktop: table. ─────────── %>
+      <div class="divide-y divide-slate-100">
+        <% @variants.each_with_index do |v, i| %>
+          <div data-row class="p-3 md:p-4 flex flex-col md:flex-row md:items-center gap-3 md:gap-4 transition">
+            <%# image %>
+            <div class="shrink-0 w-16 h-16 md:w-14 md:h-14 bg-slate-50 rounded-lg flex items-center justify-center overflow-hidden">
+              <% if v.primary_image_url %>
+                <img src="<%= v.primary_image_url %>" alt="<%= v.name %>"
+                     class="max-h-full max-w-full object-contain" loading="lazy">
+              <% else %>
+                <span class="text-slate-300 text-2xl">⋯</span>
+              <% end %>
+            </div>
+
+            <%# name + meta %>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <%= link_to product_path(slug: v.slug),
+                            class: "text-sm md:text-base font-medium text-slate-900 hover:text-rose-600 leading-snug" do %>
+                  <%= v.variant_label %>
+                <% end %>
+                <% if v.id == @product.id %>
+                  <span class="text-[10px] uppercase tracking-wide bg-slate-900 text-white rounded-full px-2 py-0.5">Tato</span>
+                <% end %>
+              </div>
+              <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                <% if v.sku.present? %><span class="font-mono"><%= v.sku %></span><% end %>
+                <% if v.in_stock? %>
+                  <span class="text-emerald-700">● skladem <%= v.stock_amount %> ks</span>
+                <% else %>
+                  <span class="text-amber-700">● <%= v.availability_label || "na objednávku" %></span>
+                <% end %>
+              </div>
+            </div>
+
+            <%# price %>
+            <div class="shrink-0 text-sm md:text-base font-semibold text-slate-900 md:w-24 md:text-right">
+              <%= format_price_cents(v.price_retail_cents) %>
+            </div>
+
+            <%# qty stepper %>
+            <div class="shrink-0 flex items-center gap-2">
+              <%= hidden_field_tag "items[#{i}][product_id]", v.id %>
+              <button type="button" aria-label="Ubrat"
+                      data-action="click->variant-picker#step" data-dir="-1"
+                      class="w-11 h-11 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300 active:bg-rose-100 text-lg leading-none">−</button>
+              <%= number_field_tag "items[#{i}][quantity]", 0,
+                    min: 0, max: 99, inputmode: "numeric",
+                    "data-variant-picker-target": "qty",
+                    "data-action": "input->variant-picker#recalc change->variant-picker#recalc",
+                    "data-unit-cents": v.price_retail_cents,
+                    class: "w-16 min-h-11 text-center border border-slate-200 rounded-full text-base font-semibold focus:border-rose-400 focus:ring-2 focus:ring-rose-100 outline-none" %>
+              <button type="button" aria-label="Přidat"
+                      data-action="click->variant-picker#step" data-dir="1"
+                      class="w-11 h-11 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300 active:bg-rose-100 text-lg leading-none">+</button>
+            </div>
+
+            <%# row subtotal (filled via JS when qty > 0) %>
+            <div class="shrink-0 text-xs text-rose-700 font-semibold md:w-24 md:text-right min-h-[1rem]"
+                 data-variant-picker-target="rowTotal"></div>
+          </div>
+        <% end %>
+      </div>
+
+      <%# ── Sticky-ish bulk-submit footer ─────────────────────────── %>
+      <div class="sticky bottom-0 z-10 bg-white border-t border-slate-200 p-4 md:p-5 flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+        <div class="flex-1 text-sm text-slate-600">
+          Vybráno: <strong class="text-slate-900" data-variant-picker-target="total">0</strong> ks
+          <span class="mx-2 text-slate-300">·</span>
+          Cena celkem: <strong class="text-rose-600" data-variant-picker-target="totalPrice">0,00 Kč</strong>
+        </div>
+        <button type="submit"
+                data-variant-picker-target="submit"
+                class="min-h-12 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:bg-slate-300 text-white font-semibold rounded-full px-6 py-3 inline-flex items-center justify-center gap-2 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M3 3h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>
+          </svg>
+          Vložit vybrané do košíku
+        </button>
+      </div>
+    <% end %>
+  </section>
+<% end %>
 
 <% if @related.any? %>
   <section class="mt-10">

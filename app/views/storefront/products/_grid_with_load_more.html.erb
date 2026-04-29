@@ -1,0 +1,35 @@
+<%#
+  Locals:
+    products: collection of Product records (current page)
+    pagy:     Pagy instance for the same collection
+    per_page: integer (24/48/96)
+    next_url: full URL string for the next page, or nil
+
+  IDs `products-grid` and `load-more-wrapper` are required — the load-more
+  Stimulus controller looks for them when fetching the next page.
+%>
+<div data-controller="load-more">
+  <div id="products-grid"
+       data-load-more-target="grid"
+       class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+    <%= render partial: "storefront/products/card", collection: products, as: :product,
+               locals: { variant_counts: local_assigns[:variant_counts] || {} } %>
+  </div>
+
+  <% if next_url.present? %>
+    <div id="load-more-wrapper"
+         data-load-more-target="wrapper"
+         class="my-6 flex justify-center">
+      <%= link_to next_url,
+                  data: { action: "click->load-more#load" },
+                  rel: "next",
+                  class: "inline-flex items-center justify-center gap-2 min-h-12 bg-white hover:bg-rose-50 active:bg-rose-100 border border-slate-200 hover:border-rose-300 rounded-full px-6 py-3 text-sm md:text-base font-semibold text-slate-700 hover:text-rose-700 transition" do %>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        Načíst další produkty
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# Always also show numbered pagination for jump-to-page %>
+  <%= pagy_nav_pretty(pagy) %>
+</div>

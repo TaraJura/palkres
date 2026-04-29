@@ -7,10 +7,12 @@ class Storefront::SearchController < Storefront::BaseController
     "price_desc" => { price_retail_cents: :desc },
     "newest"     => { synced_at: :desc }
   }.freeze
+  PER_PAGE = [24, 48, 96].freeze
 
   def show
     @query = params[:q].to_s.strip
     @sort  = SORTS.key?(params[:sort]) ? params[:sort] : "relevance"
+    @per_page = PER_PAGE.include?(params[:per_page].to_i) ? params[:per_page].to_i : 24
 
     base = Product.active.where("price_retail_cents > 0")
 
@@ -22,17 +24,19 @@ class Storefront::SearchController < Storefront::BaseController
       )
     end
 
-    @total_before_facets = base.count
+    grouped_base = Product.one_per_variant_group_of(base)
+    @total_before_facets = grouped_base.count
     @price_range = base.pluck("MIN(price_retail_cents), MAX(price_retail_cents)").first || [0, 0]
 
-    # Build manufacturer facet counts (top 20) BEFORE applying the manufacturer filter
-    @manufacturer_facets = Manufacturer.joins(:products).merge(base)
+    # Build manufacturer facet counts (top 20) BEFORE applying the manufacturer filter.
+    # Counts are family counts (one per variant group) for consistency with the listing.
+    @manufacturer_facets = Manufacturer.joins(:products).merge(grouped_base)
                                        .group("manufacturers.id", "manufacturers.name")
                                        .order("COUNT(products.id) DESC")
                                        .limit(20)
                                        .pluck("manufacturers.id", "manufacturers.name", "COUNT(products.id)")
 
-    scope = base
+    scope = grouped_base
 
     if params[:manufacturer_id].present?
       scope = scope.where(manufacturer_id: params[:manufacturer_id])
@@ -63,6 +67,7 @@ class Storefront::SearchController < Storefront::BaseController
         { name: :asc }
       end
 
-    @pagy, @products = pagy(scope.order(order_clause))
+    @pagy, @products = pagy(scope.order(order_clause), limit: @per_page)
+    @variant_counts = Product.variant_counts_for(@products)
   end
 end

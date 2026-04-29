@@ -3,6 +3,7 @@
 <%
   base_params = request.query_parameters.reject { |k, _| k.to_s == "page" }.symbolize_keys
   has_filters = params[:manufacturer_id].present? || params[:in_stock] == "1"
+  next_url = @pagy.next ? url_for(base_params.merge(path: params[:path], page: @pagy.next)) : nil
 
   cat_emoji = case @category.path.first&.name.to_s.downcase
               when /kresb/ then "✏️"
@@ -66,7 +67,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5 md:gap-6">
   <%# Sidebar (collapsible on mobile) %>
   <aside class="lg:sticky lg:top-20 lg:self-start">
-    <details class="bg-white border border-slate-200 rounded-2xl lg:open" <%= "open" if has_filters %>>
+    <details class="bg-white border border-slate-200 rounded-2xl lg:open" open>
       <summary class="flex items-center justify-between gap-2 p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden lg:cursor-default">
         <span class="flex items-center gap-2 font-semibold">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
@@ -145,33 +146,47 @@
         <% end %>
       </div>
 
-      <%= form_with url: category_path(path: params[:path]), method: :get, local: true,
-                    class: "flex items-center gap-2 text-sm shrink-0" do |f| %>
-        <% base_params.except(:sort, :page, :path).each do |k, v| %>
-          <%= hidden_field_tag k, v %>
+      <div class="flex items-center gap-3 text-sm shrink-0 flex-wrap">
+        <%= form_with url: category_path(path: params[:path]), method: :get, local: true,
+                      class: "flex items-center gap-2" do |f| %>
+          <% base_params.except(:sort, :page, :path).each do |k, v| %>
+            <%= hidden_field_tag k, v %>
+          <% end %>
+          <label for="sort_select" class="text-slate-500 whitespace-nowrap">Seřadit:</label>
+          <%= select_tag :sort,
+                options_for_select(
+                  [
+                    ["Název: A–Z",     "name_asc"],
+                    ["Název: Z–A",     "name_desc"],
+                    ["Cena: nejnižší", "price_asc"],
+                    ["Cena: nejvyšší", "price_desc"],
+                    ["Nejnovější",     "newest"]
+                  ], @sort
+                ),
+                id: "sort_select",
+                onchange: "this.form.submit()",
+                class: "min-h-10 border border-slate-200 rounded-lg px-3 py-1.5 text-base bg-white" %>
         <% end %>
-        <label for="sort_select" class="text-slate-500 whitespace-nowrap">Seřadit:</label>
-        <%= select_tag :sort,
-              options_for_select(
-                [
-                  ["Název: A–Z",     "name_asc"],
-                  ["Název: Z–A",     "name_desc"],
-                  ["Cena: nejnižší", "price_asc"],
-                  ["Cena: nejvyšší", "price_desc"],
-                  ["Nejnovější",     "newest"]
-                ], @sort
-              ),
-              id: "sort_select",
-              onchange: "this.form.submit()",
-              class: "min-h-10 border border-slate-200 rounded-lg px-3 py-1.5 text-base bg-white" %>
-      <% end %>
+
+        <%= form_with url: category_path(path: params[:path]), method: :get, local: true,
+                      class: "flex items-center gap-2" do |f| %>
+          <% base_params.except(:per_page, :page, :path).each do |k, v| %>
+            <%= hidden_field_tag k, v %>
+          <% end %>
+          <label for="per_page_select" class="text-slate-500 whitespace-nowrap">Na stránku:</label>
+          <%= select_tag :per_page,
+                options_for_select([["24", 24], ["48", 48], ["96", 96]], @per_page),
+                id: "per_page_select",
+                onchange: "this.form.submit()",
+                class: "min-h-10 border border-slate-200 rounded-lg px-3 py-1.5 text-base bg-white" %>
+        <% end %>
+      </div>
     </div>
 
     <% if @products.any? %>
-      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-        <%= render partial: "storefront/products/card", collection: @products, as: :product %>
-      </div>
-      <%= pagy_nav_pretty(@pagy) %>
+      <%= render "storefront/products/grid_with_load_more",
+                 products: @products, pagy: @pagy, per_page: @per_page, next_url: next_url,
+                 variant_counts: @variant_counts %>
     <% else %>
       <div class="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
         <div class="text-4xl mb-2">😕</div>

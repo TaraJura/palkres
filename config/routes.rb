@@ -14,9 +14,10 @@ Rails.application.routes.draw do
 
   # Cart + checkout
   resource  :kosik, controller: "storefront/cart", only: [:show] do
-    post "pridat/:product_id", action: :add,    as: :add
-    patch "polozka/:id",       action: :update, as: :update
-    delete "polozka/:id",      action: :remove, as: :remove
+    post "pridat/:product_id", action: :add,        as: :add
+    post "pridat-hromadne",    action: :bulk_add,   as: :bulk_add
+    patch "polozka/:id",       action: :update,     as: :update
+    delete "polozka/:id",      action: :remove,     as: :remove
   end
 
   namespace :storefront, path: "" do

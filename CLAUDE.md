@@ -46,9 +46,9 @@ Claude Code (Opus 4.7) is the AI pair-programmer that scaffolded, built, and dep
 
 ### Storefront (CZ)
 - `/` — home, featured categories + top-sellers (`MERGADO_TOPSELLER=1`)
-- `/kategorie/*path` — category listing w/ left-tree sidebar, pagy pagination, facets
-- `/produkt/:slug` — detail page, gallery, add to cart
-- `/hledat?q=…` — FTS + trigram fuzzy
+- `/kategorie/*path` — category listing w/ left-tree sidebar, pagy pagination, facets, per-page selector (24/48/96), "Načíst další" load-more
+- `/produkt/:slug` — detail page, gallery, add to cart, **variant grid + bulk-add** for any product whose `item_group_id` has siblings (paint families, brush sizes, etc.)
+- `/hledat?q=…` — FTS + trigram fuzzy, per-page selector (24/48/96), "Načíst další" load-more
 - `/kosik` — Turbo-driven cart
 - `/pokladna` — guest/user checkout (address → shipping → payment → confirm)
 - `/uctu/*` — user's orders, addresses, profile
@@ -486,6 +486,62 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-29 — Listings collapse variants into one card per `item_group_id`
+- **Why**: ARTIKON puts every color / size variant into the catalog as a separate product (e.g. 525 entries for one Sennelier pastel family, 472 for Umton oil paint). Listings were showing each variant as its own card → 29 250 cards across the catalog, the same family fills entire pages, search for "stabilo" returned 205 hits, and the "Do košíku" button on a card added a specific arbitrary color rather than letting the customer pick. The product page already has the variant-bulk-add UX (2026-04-25); listings should funnel to it instead of duplicating it.
+- **What changed (user-visible)**:
+  - Category, search, and home listings now show **one card per family**. The card displays the family name (e.g. "Olejová barva Renesans 20ml" instead of "Olejová barva Renesans 20ml – 41 zeleň hooker"), a rose **"X variant"** badge in the top-right corner of the image, and an **"od " prefix on the price** (since the displayed price is the cheapest variant in the family).
+  - The CTA on multi-variant cards changed from "Do košíku" to **"Vybrat →"** that scrolls to `#varianty` on the product page (the existing variant-picker grid). Singletons keep "Do košíku" exactly as before.
+  - Counts everywhere now reflect families: search "stabilo" → **32 families** (was 205), Novinky → **108 produktů** (was 418), manufacturer facets count families too. Total catalog drops from 29 250 cards to 7 637.
+- **Implementation**:
+  - `Product::GROUP_KEY_SQL` (`app/models/product.rb`) — Postgres `COALESCE(item_group_id, 'p-' || id::text)` so ungrouped products are still their own group.
+  - `Product.one_per_variant_group_of(scope)` — wraps any caller scope in a `WHERE id IN (SELECT DISTINCT ON (group_key) id … ORDER BY group_key, price_retail_cents ASC NULLS LAST, id)` subquery. Cheapest active variant becomes the representative; ties broken by id. **Must `unscope(:order, :limit, :offset).distinct(false)` on the inner scope** — see gotcha below.
+  - `Product.variant_counts_for(products)` — single follow-up query keyed on `item_group_id`, returns `{ group_id => count }` for the page being rendered.
+  - `Storefront::CategoriesController#show` and `Storefront::SearchController#show` now run their existing filtered `base` scope through `Product.one_per_variant_group_of(base)` before `pagy(...)`, build `@variant_counts`, and apply manufacturer facets / totals to the grouped scope.
+  - `Storefront::HomeController#show` collapses `@recent_products`, `@best_deals`, and `@stats[:products]` the same way.
+  - `_grid_with_load_more.html.erb` and `home/show.html.erb` forward `variant_counts` as a local to the `_card` collection render.
+  - `_card.html.erb` reads `local_assigns[:variant_counts]`, computes `has_variants` (count > 1), swaps title to `variant_family_name`, prefixes price with "od ", renders the badge, and switches the CTA to a `#varianty` link. Safely defaults to old behaviour when no `variant_counts` local is passed (any future caller of the partial).
+- **Gotchas**:
+  - The category controller chains `.distinct` onto `base`. Plain `where(id: subquery)` produced `SELECT DISTINCT DISTINCT ON (...)` → Postgres syntax error. Fix: `scope.unscope(:order, :limit, :offset).distinct(false).select(Arel.sql("DISTINCT ON (...) products.id"))` so the inner subquery owns the DISTINCT.
+  - The outer query on the new scope is a **fresh** `Product.where(id: …)` — no joins from the input scope leak through. That means user-facing `ORDER BY` (e.g. `price_retail_cents ASC`) applies cleanly without conflicting with `DISTINCT ON`'s required leading sort.
+  - The picked representative is the *cheapest* variant. When the user sorts by `price_asc`, the displayed prices match the sort order (no surprise of "the family's cheapest variant is shown but the family has a more-expensive rep here").
+- **Verified**:
+  - Console: `Product.active.where("price_retail_cents > 0").count` = 29 250 → `one_per_variant_group_of(...).count` = 7 637.
+  - Search "stabilo": 205 variants → 32 families. Manufacturer facets are per family.
+  - Category Novinky: 418 variants → 108 families. Top family "Akrylová barva Kreul Matt :: 48 variant" (one card, badge "48 variant", "Vybrat →" CTA visible in HTML).
+  - Curl smoke 200s on `/`, `/hledat?q=stabilo`, `/kategorie/novinky`, `/kategorie/novinky?in_stock=1&per_page=48&sort=price_asc`.
+  - HTML inspection on Novinky: badge "48 variant", "Vybrat →" link to `…#varianty`, `<strong>108</strong> produktů` headline.
+  - `bin/rails assets:precompile` ran (new `whitespace-nowrap` is already in default Tailwind, but the CSS was rebuilt for safety).
+- **Files**: `app/models/product.rb`, `app/controllers/storefront/categories_controller.rb`, `app/controllers/storefront/search_controller.rb`, `app/controllers/storefront/home_controller.rb`, `app/views/storefront/products/_card.html.erb`, `app/views/storefront/products/_grid_with_load_more.html.erb`, `app/views/storefront/categories/show.html.erb`, `app/views/storefront/search/show.html.erb`, `app/views/storefront/home/show.html.erb`.
+
+### 2026-04-25 — Variant bulk-add + per-page + load-more + filters open by default (Pavel feedback)
+- **Why**: Pavel Holuša e-mailed feedback after his first walkthrough (2026-04-25): paint products with many color/size variants need a single page where the customer marks quantities for several variants and adds them to the cart in one click ("důležité"); listing pages need a per-page selector and a "load more" mechanism so the previous page stays visible while continuing. Follow-up message (same day) added: filters sidebar should be **expanded by default** on every breakpoint, not collapsed on mobile / only-open-when-active.
+- **What changed (user-visible)**:
+  - Product detail page (`/produkt/:slug`) now shows a "Vyberte varianty" section listing every product in the same `item_group_id`. Each row has a thumbnail, color/size label, price, stock indicator and a [−][n][+] qty stepper. A sticky footer shows live "Vybráno: X ks · Cena celkem: Y Kč" and a single "Vložit vybrané do košíku" button posts the whole batch in one request. Family name (e.g. "Kulatý štětec Master 1006R") is extracted by splitting on the en-dash so the page heading reads cleanly.
+  - Category and search listings now have a "Na stránku: 24 / 48 / 96" selector next to the sort dropdown.
+  - Below the grid is a "Načíst další produkty" button that fetches the next page and **appends** to the current grid without losing the items already shown. Numbered pagination is still rendered below for jump-to-page.
+  - Filters sidebar (`<details>`) is now **always expanded by default** on every breakpoint (was: collapsed on mobile, only auto-open when filters were active). Pavel asked for this explicitly so the filter chips/checkboxes are visible without an extra tap.
+- **Implementation**:
+  - `Cart#add_many(entries)` (`app/models/cart.rb`): transactional bulk add; quantities ≤ 0 are skipped; reuses `add_product` so existing-cart-item increment semantics are preserved.
+  - New route `POST /kosik/pridat-hromadne` → `Storefront::CartController#bulk_add` (`config/routes.rb`, `app/controllers/storefront/cart_controller.rb`). Reads `params[:items]` (a hash keyed by index), filters to integers, redirects to /kosik with a Czech flash count.
+  - `Product#variants` / `#has_variants?` / `#variant_label` / `#variant_family_name` (`app/models/product.rb`): scoped to same `item_group_id` and `price_retail_cents > 0`; label/family extraction splits the product name on `\s+[–—-]\s+`.
+  - `Storefront::ProductsController#show` eagerly loads `@variants.includes(:manufacturer, :product_images).order(:name)` only when the product has siblings.
+  - View `app/views/storefront/products/show.html.erb` rewritten: hero + main pane unchanged; new `<section id="varianty">` with the bulk-add form, mobile-first row layout (image/title/price/stepper stack on phones, align horizontally at md:+), sticky footer with the running totals.
+  - New Stimulus controller `app/javascript/controllers/variant_picker_controller.js`: targets `qty`, `total`, `totalPrice`, `submit`, `rowTotal`. Recalcs on `input`/`change`, supports +/− buttons, formats prices in Czech style (space thousand separator, comma decimal, "Kč" suffix), disables the submit button until at least one variant has a quantity, highlights non-zero rows with a rose tint.
+  - Pagination per-page: `Storefront::CategoriesController` and `Storefront::SearchController` accept `params[:per_page]` whitelisted to `[24, 48, 96]` (default 24) and pass it to `pagy(scope, limit: @per_page)`.
+  - Shared partial `app/views/storefront/products/_grid_with_load_more.html.erb`: wraps `#products-grid` and `#load-more-wrapper` (the IDs the Stimulus controller targets), renders the next-page link if `@pagy.next`, then `pagy_nav_pretty` underneath.
+  - New Stimulus controller `app/javascript/controllers/load_more_controller.js`: on click of the "Načíst další" link, fetches the next page URL (Accept: text/html), parses with DOMParser, appends the children of the response's `#products-grid` into the current one, then replaces `#load-more-wrapper` with the response's. Updates `history.replaceState` so refresh keeps you on the loaded page. Works with all current filters (manufacturer / in_stock / sort / per_page) since the link href is built from `request.query_parameters.merge(page: @pagy.next)`.
+  - Both category and search views got the per-page selector form alongside the existing sort form.
+  - Filters-open-by-default: the `<details class="… lg:open">` element in `app/views/storefront/categories/show.html.erb` and `app/views/storefront/search/show.html.erb` had its conditional `<%= "open" if has_filters %>` replaced with an unconditional `open` attribute, so the dropdown is expanded the moment the page loads regardless of breakpoint or filter state.
+- **Verified**:
+  - Smoke 200s on `/`, `/hledat`, `/hledat?q=stabilo&per_page=48`, `/kosik`, `/kategorie/.../novinky`, `/kategorie/.../novinky?per_page=96`, the unknown `per_page=999` (clamps silently to 24).
+  - `Cart#add_many` console test: 5 entries (qty 1,2,3,4,0) → 4 items added, qty sum 10, prices snapshotted from `price_retail_cents`. Zero quantities correctly skipped.
+  - Variant page on a 16-variant brush family renders 16 hidden `items[i][product_id]`, 16 `items[i][quantity]` inputs, 16 `data-unit-cents`, form action `/kosik/pridat-hromadne`, family heading "Kulatý štětec Master 1006R" (suffix stripped).
+  - Variant page on the 472-variant Umton oil paint family loads in ~0.4 s, 1.3 MB HTML — acceptable; all 472 rows render. (If perf becomes an issue we can paginate the variant grid by size or color, but the customer asked for the whole list, so keep it for now.)
+  - Category load-more wrapper renders an `<a href="/kategorie/...?in_stock=1&page=2&per_page=24">` — filters preserved.
+  - Selected `per_page` option is `selected="selected"` in the dropdown.
+  - After the filters-open-by-default change: re-curled `/kategorie/.../novinky` and `/hledat?q=stabilo` and confirmed the rendered HTML now contains `<details class="… lg:open" open>` on a clean URL (no filters applied) — the panel renders expanded.
+- **Files**: `app/models/cart.rb`, `app/models/product.rb`, `app/controllers/storefront/cart_controller.rb`, `app/controllers/storefront/products_controller.rb`, `app/controllers/storefront/categories_controller.rb`, `app/controllers/storefront/search_controller.rb`, `config/routes.rb`, `app/views/storefront/products/show.html.erb`, `app/views/storefront/products/_grid_with_load_more.html.erb` (new), `app/views/storefront/categories/show.html.erb`, `app/views/storefront/search/show.html.erb`, `app/javascript/controllers/variant_picker_controller.js` (new), `app/javascript/controllers/load_more_controller.js` (new). `bin/rails assets:precompile` ran (Tailwind 4.2 + new Stimulus controllers fingerprinted).
+
 ### 2026-04-25 — Category page redesign + Design System section in CLAUDE.md
 - **Category page redesign** (`app/views/storefront/categories/show.html.erb`, `app/controllers/storefront/categories_controller.rb`):
   - **Hero header** with category emoji (mapped: Kresba ✏️ / Malba 🎨 / Papírnictví 📄 / Grafika 🖼️ / Keramika 🏺 / Tvoření ✂️), title + subtitle showing `"X produktů v Y podkategoriích"`. Same gradient as the home hero (`from-rose-50 via-white to-amber-50`).
@@ -656,6 +712,7 @@ Verified post-deploy with `curl -A "Mozilla/5.0 (iPhone…)"` against `/`, `/hle
 | GET  | `/produkt/:slug`                   | `storefront/products#show`         | enqueues `ImageCacherJob` on first view |
 | GET  | `/kosik`                           | `storefront/cart#show`             | guest + logged-in |
 | POST | `/kosik/pridat/:product_id`        | `storefront/cart#add`              | redirects 303 → /kosik |
+| POST | `/kosik/pridat-hromadne`           | `storefront/cart#bulk_add`         | bulk-add of variants from product page (`items[i][product_id]`, `items[i][quantity]`) |
 | PATCH| `/kosik/polozka/:id`               | `storefront/cart#update`           | quantity stepper |
 | DELETE| `/kosik/polozka/:id`              | `storefront/cart#remove`           | trash icon |
 | GET  | `/pokladna`                        | `storefront/checkouts#show`        | 5-step form (Kontakt / Adresa / Doprava / Platba / Poznámka) |

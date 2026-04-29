@@ -1,8 +1,20 @@
-<article class="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col hover:shadow-md transition">
+<%
+  variant_counts = local_assigns[:variant_counts] || {}
+  variant_count = product.item_group_id ? variant_counts[product.item_group_id].to_i : 0
+  has_variants = variant_count > 1
+  display_name = has_variants ? product.variant_family_name : product.name
+%>
+<article class="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col hover:shadow-md transition relative">
+  <% if has_variants %>
+    <span class="absolute top-2 right-2 z-10 inline-flex items-center gap-1 bg-rose-600 text-white text-xs font-semibold rounded-full px-2.5 py-1 shadow-sm">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="12" cy="17" r="3"/></svg>
+      <%= variant_count %> variant
+    </span>
+  <% end %>
   <%= link_to product_path(slug: product.slug), class: "block" do %>
     <div class="aspect-square bg-slate-50 flex items-center justify-center p-4">
       <% if product.primary_image_url %>
-        <img src="<%= product.primary_image_url %>" alt="<%= product.name %>" class="max-h-full max-w-full object-contain" loading="lazy">
+        <img src="<%= product.primary_image_url %>" alt="<%= display_name %>" class="max-h-full max-w-full object-contain" loading="lazy">
       <% else %>
         <div class="text-slate-300 text-5xl">⋯</div>
       <% end %>
@@ -13,16 +25,26 @@
       <div class="text-xs uppercase text-slate-400 font-semibold"><%= product.manufacturer.name %></div>
     <% end %>
     <h3 class="text-sm font-medium leading-snug line-clamp-2">
-      <%= link_to product.name, product_path(slug: product.slug), class: "hover:text-rose-600" %>
+      <%= link_to display_name, product_path(slug: product.slug), class: "hover:text-rose-600" %>
     </h3>
-    <div class="mt-auto flex items-end justify-between pt-2">
+    <div class="mt-auto flex items-end justify-between pt-2 gap-2">
       <div>
-        <div class="text-lg font-bold"><%= format_price_cents(product.price_retail_cents) %></div>
+        <div class="text-lg font-bold">
+          <% if has_variants %><span class="text-xs text-slate-400 font-normal">od </span><% end %><%= format_price_cents(product.price_retail_cents) %>
+        </div>
         <div class="text-xs text-slate-400">bez DPH <%= format_price_cents(product.price_wo_tax_cents) %></div>
       </div>
-      <%= button_to "Do košíku", add_kosik_path(product_id: product.id), method: :post,
-                    class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-3 py-1.5 text-sm",
-                    form_class: "inline" %>
+      <% if has_variants %>
+        <%= link_to product_path(slug: product.slug, anchor: "varianty"),
+                    class: "inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap" do %>
+          Vybrat
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+        <% end %>
+      <% else %>
+        <%= button_to "Do košíku", add_kosik_path(product_id: product.id), method: :post,
+                      class: "bg-rose-600 hover:bg-rose-700 text-white rounded-full px-3 py-1.5 text-sm whitespace-nowrap",
+                      form_class: "inline" %>
+      <% end %>
     </div>
   </div>
 </article>
