@@ -480,6 +480,17 @@ sudo journalctl -u palkres-eshop.service -f
 
 Newest at top. Every non-trivial production change should append an entry here.
 
+### 2026-04-30 — Group-image URL: derive extension from the variant's IMAGE_BIG (was hardcoded .jpg → 404 on PNG families)
+- **Bug**: `https://palkres.techtools.cz/produkt/cranfield-litho-ink-150ml-transparent-sun-64536` rendered no main image. The hero `<img src>` pointed at `https://www.artikon.cz/deploy/img/products/64516/64516.jpg` which returns **404** — Cranfield Litho Ink's family photo is `64516.png`, not `.jpg`. Same broken URL on every product whose variants use PNG (~4 578 variants in the catalog, ~15% — anything Cranfield-style with transparency).
+- **Root cause**: yesterday's group-image change hardcoded `.jpg` as the extension when synthesizing the group URL. ARTIKON's group image actually preserves whatever extension the variants use (`<IMAGE_BIG>` returns `.jpg` for ~85% of products, `.png` for ~15%, a handful of `.gif`).
+- **Fix**:
+  - `Artikon::FeedImporter#map_item` now reads the extension off this SHOPITEM's own `IMAGE_BIG` (or `IMAGE`) URL and uses it when synthesizing the group URL. Whitelist of allowed extensions (`jpg|jpeg|png|gif|webp`); falls back to `jpg` if missing/unknown.
+  - Backfill (one-shot SQL on prod + dev): derive each product's group extension from its `product_images.url` row's filename suffix and rewrite `group_image_url` accordingly. 29 257 rows updated in prod, 29 222 in dev.
+- **Verified**:
+  - Cranfield Litho Ink 150ml — Transparent: hero `<img src>` now points at `…/products/64516/64516.png` (HTTP 200), not `.jpg` (404).
+  - Random sample of 10 families across the catalog: all 10 group-image URLs return 200 OK with real-sized images (12 KB – 188 KB) at the derived extension.
+- **Files**: `app/services/artikon/feed_importer.rb`. `sudo systemctl restart palkres-eshop.service`. The DB column itself didn't need to change — only the value-derivation logic.
+
 ### 2026-04-30 — Fix bulk-add 500: items params is a Parameters hash, not a key-value pair list
 - **Bug**: clicking "Vložit vybrané do košíku" with any selection raised `NoMethodError (undefined method '[]' for nil)` in `Storefront::CartController#bulk_add` and rendered the generic "We're sorry, but something went wrong" 500. Reproducible with the integration test below.
 - **Root cause**: the form submits items as `items[0][product_id]=…&items[0][quantity]=…`. Rails parses this into `params[:items]` as `ActionController::Parameters` keyed by the index string ("0", "1", …), **not** as an array. The old code did `Array(params[:items]).map do |_idx, row|`. `Array(parameters_obj)` wraps the object as a single-element array (it doesn't iterate as `[[k,v],…]` like `Hash#to_a` does), so the destructuring assigned `_idx = parameters_obj` and `row = nil`, then `row[:product_id]` blew up.

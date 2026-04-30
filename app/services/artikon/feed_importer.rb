@@ -125,9 +125,15 @@ module Artikon
       price_wo = raw["PRICE_WO_TAX"].to_s.gsub(",", ".").to_f
       dealer   = raw["PRICE_W_cr_dealer"].to_s.gsub(",", ".").to_f
       item_group_id = raw["ITEMGROUP_ID"].presence
+      # Derive the per-family group image URL. ARTIKON serves the family photo at
+      # /deploy/img/products/<ITEMGROUP_ID>/<ITEMGROUP_ID>.<ext>. The extension
+      # matches the variants' own IMAGE_BIG/IMAGE files (most are .jpg, ~15% are
+      # .png — e.g. Cranfield Litho Ink), so we read it off this variant's URL.
+      variant_ext = (raw["IMAGE_BIG"].to_s.presence || raw["IMAGE"].to_s)[/\.(\w+)\z/, 1]&.downcase
+      variant_ext = "jpg" unless %w[jpg jpeg png gif webp].include?(variant_ext)
       group_image_url =
         if item_group_id&.match?(/\A\d+\z/)
-          "https://www.artikon.cz/deploy/img/products/#{item_group_id}/#{item_group_id}.jpg"
+          "https://www.artikon.cz/deploy/img/products/#{item_group_id}/#{item_group_id}.#{variant_ext}"
         end
 
       {
