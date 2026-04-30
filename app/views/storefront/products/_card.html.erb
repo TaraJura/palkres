@@ -3,6 +3,7 @@
   variant_count = product.item_group_id ? variant_counts[product.item_group_id].to_i : 0
   has_variants = variant_count > 1
   display_name = has_variants ? product.variant_family_name : product.name
+  card_image_url = has_variants ? product.family_image_url : product.primary_image_url
 %>
 <article class="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col hover:shadow-md transition relative">
   <% if has_variants %>
@@ -13,8 +14,8 @@
   <% end %>
   <%= link_to product_path(slug: product.slug), class: "block" do %>
     <div class="aspect-square bg-slate-50 flex items-center justify-center p-4">
-      <% if product.primary_image_url %>
-        <img src="<%= product.primary_image_url %>" alt="<%= display_name %>" class="max-h-full max-w-full object-contain" loading="lazy">
+      <% if card_image_url %>
+        <img src="<%= card_image_url %>" alt="<%= display_name %>" class="max-h-full max-w-full object-contain" loading="lazy">
       <% else %>
         <div class="text-slate-300 text-5xl">⋯</div>
       <% end %>

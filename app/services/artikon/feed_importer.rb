@@ -124,6 +124,11 @@ module Artikon
       price_w  = raw["PRICE_W_TAX"].to_s.gsub(",", ".").to_f
       price_wo = raw["PRICE_WO_TAX"].to_s.gsub(",", ".").to_f
       dealer   = raw["PRICE_W_cr_dealer"].to_s.gsub(",", ".").to_f
+      item_group_id = raw["ITEMGROUP_ID"].presence
+      group_image_url =
+        if item_group_id&.match?(/\A\d+\z/)
+          "https://www.artikon.cz/deploy/img/products/#{item_group_id}/#{item_group_id}.jpg"
+        end
 
       {
         artikon_id: raw["PRODUCTID"].to_s.strip,
@@ -145,7 +150,8 @@ module Artikon
         stock_amount: raw["AMOUNT"].to_i,
         availability_label: raw["AVAILABILITY"].presence,
         availability_days: raw["AVAILABILITY_DAYS"].to_i,
-        item_group_id: raw["ITEMGROUP_ID"].presence,
+        item_group_id: item_group_id,
+        group_image_url: group_image_url,
         supplier_url: raw["LINK"].presence,
         manufacturer_part_number: raw["PN_MANUFACTURER"].presence,
         topseller: raw["MERGADO_TOPSELLER"].to_s == "1",

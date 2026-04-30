@@ -42,8 +42,20 @@ class Product < ApplicationRecord
   validates :artikon_id, presence: true, uniqueness: true
   validates :name, presence: true
 
+  # Per-variant image (the SHOPITEM's own IMAGE_BIG). On ARTIKON, many variants
+  # carry only a 60×24 placeholder when the supplier doesn't have a per-color photo.
   def primary_image_url
     product_images.first&.url
+  end
+
+  alias_method :variant_image_url, :primary_image_url
+
+  # Family/product image — the ARTIKON ITEMGROUP_ID photo. This is the picture
+  # shown on listings (one card per family) and as the main hero on the product
+  # detail page when the product has variants. Falls back to the variant image
+  # when the group image is unknown (singletons, non-numeric ITEMGROUP_ID).
+  def family_image_url
+    group_image_url.presence || primary_image_url
   end
 
   def price_for(user)

@@ -3,27 +3,35 @@
 Rails 8.1.2 + PostgreSQL e-shop for **Palkres s.r.o.** (art & stationery supplies).
 Primary supplier: **ARTIKON s.r.o.** via XML feed.
 
-## Ownership & team
+## 🔴 CRITICAL — Source of truth: ARTIKON XML feed
 
-- **Architect / developer / maintainer**: Jiří Novák (Techtools), <jiri.novak@techtools.cz>, +420 603 328 374
-- **Client**: Palkres s.r.o. — Pavel Holuša, <palkres@seznam.cz>
-- **Project status (2026-04-25)**: free functional-prototype phase, live at https://palkres.techtools.cz
-- **Commercial terms**: first demo **free**, per the 2026-04-22 pitch (AI-first workflow, 3–5× faster delivery). Final cenová kalkulace + harmonogram due after in-person meeting.
+**The single canonical product feed is:**
 
-Claude Code (Opus 4.7) is the AI pair-programmer that scaffolded, built, and deploys the stack end-to-end under Jiří's direction. Any future automated agent (scheduled or ad-hoc) should read **this file first**, then the memory index at `~/.claude/projects/-home-novakj/memory/MEMORY.md` (which links to `project_palkres.md`) before making changes.
+```
+https://www.artikon.cz/feeds/xml/VO_XML_Feed_Komplet_2.xml
+```
+
+- ~163 MB, ~29 222 `<SHOPITEM>` entries, gzipped at edge but Rails fetches the uncompressed XML.
+- Cached locally at `tmp/artikon/feed.xml` after every successful fetch (gitignored).
+- **All catalog state in the database is downstream of this feed** — products, categories, manufacturers, prices, stock, images. If something looks wrong in the DB, *re-read the feed first* before assuming a code bug. The feed is the source of truth; the DB is a derived view.
+- Every `<SHOPITEM>` is one ARTIKON variant — `IMAGE` / `IMAGE_BIG` / `IMAGE_BIG_NOWM` are per-variant URLs (often a placeholder if the variant has no own photo); `ITEMGROUP_ID` groups variants and the **group-level image lives at `https://www.artikon.cz/deploy/img/products/<ITEMGROUP_ID>/<ITEMGROUP_ID>.jpg`** even though no SHOPITEM emits that URL — derive it when the per-variant image returns a 60×24 placeholder.
+- See **Rule 5** for the SAX-streaming requirement (never `Nokogiri::XML(File.read(feed))`).
+- See `app/services/artikon/{feed_fetcher,feed_sax_handler,feed_importer}.rb` for the only legitimate consumers.
+
+Any change to import, image handling, pricing, stock, or category logic **must** be validated against the feed contents above before shipping.
 
 ## At-a-glance
 
 - **Location**: `/home/novakj/palkres-eshop`
-- **GitHub**: `git@github.com:TaraJura/palkres.git` (SSH as `TaraJura`, single `main` branch)
-- **Live URL**: <https://palkres.techtools.cz> (Let's Encrypt TLS, expires 2026-07-23, auto-renew via certbot)
-- **Admin URL**: `/admin` — `admin@palkres.cz` / `palkres-admin-2026` (seeded in `db/seeds.rb`, rotate via console: `User.find_by(email_address: …).update!(password: …)`)
+- **GitHub**: `git@github.com:TaraJura/palkres.git` (single `main` branch)
+- **Live URL**: <https://palkres.techtools.cz> (Let's Encrypt TLS auto-renewed via certbot timer)
+- **Admin URL**: `/admin` — credentials seeded in `db/seeds.rb`. Rotate via console: `User.find_by(email_address: …).update!(password: …)`
 - **Ruby / Rails**: 4.0.1 / 8.1.2
 - **Database**: PostgreSQL 17 (role `palkres`, DBs `palkres_eshop_{development,test,production}` + 3 `_production_{cache,queue,cable}` for Solid)
 - **Port (prod)**: 3003, behind nginx on `palkres.techtools.cz` → systemd `palkres-eshop.service` (Puma 8 single mode + Solid Queue plugin)
-- **Supplier feed**: `https://www.artikon.cz/feeds/xml/VO_XML_Feed_Komplet_2.xml` (~163 MB, ~29 222 products)
-- **Bank account for QR-platba**: `6755089389/0800` → IBAN `CZ1908000000006755089389`, beneficiary `techtools s.r.o.` (placeholder for Palkres until they open their own account; see `.env` `PALKRES_BANK_IBAN`)
-- **Outgoing e-mail**: SMTP wired but not configured — set `SMTP_HOST/PORT/USER/PASS/DOMAIN` in `.env` to start sending real e-mails (currently `:test` delivery)
+- **Supplier feed**: see CRITICAL section above.
+- **Bank for QR-platba**: configured via `.env` (`PALKRES_BANK_IBAN`, `PALKRES_BANK_NAME`). `Payments::CzechQr.placeholder?` short-circuits when the IBAN is one of the known placeholders.
+- **Outgoing e-mail**: SMTP wired but disabled until `SMTP_HOST/PORT/USER/PASS/DOMAIN` are set in `.env` (currently `:test` delivery).
 
 ## How it works
 
@@ -125,7 +133,7 @@ Most Czech e-shop traffic is mobile. The phone breakpoint is the **default**, th
 When in doubt, *open the page on your phone first*. If the phone view feels cramped, broken, or hostile to touch, the change is not done.
 
 ### 11. The whole app is in Czech — every user-facing string MUST be in Czech
-The audience is Czech consumers and a Czech client (Palkres). Every label, button, placeholder, helper text, error message, e-mail subject, e-mail body, flash notice, page title, status name shown to users, empty-state copy, and admin section header must be in Czech. No English remnants.
+The audience is Czech consumers. Every label, button, placeholder, helper text, error message, e-mail subject, e-mail body, flash notice, page title, status name shown to users, empty-state copy, and admin section header must be in Czech. No English remnants.
 
 **Where to look for English creep**:
 
@@ -155,7 +163,7 @@ The audience is Czech consumers and a Czech client (Palkres). Every label, butto
 2. Open the page on the live site and skim every word.
 3. Mailers: render `OrderMailer.confirmation(id).body` in console and confirm the subject + every line is Czech.
 
-When in doubt: ask Jiří for the right Czech phrasing, don't invent loose translations. Czech commerce tone is generally more formal ("Vaše objednávka byla přijata", not "Hotovo!").
+When in doubt, ask for the right Czech phrasing rather than inventing loose translations. Czech commerce tone is generally more formal ("Vaše objednávka byla přijata", not "Hotovo!").
 
 ### 12. Document EVERY change in this CLAUDE.md — no exceptions
 Claude Code is the **architect and main developer** of this app. That role is not just a label — it carries the responsibility of keeping the project's institutional memory in this file. Every change to production (or to anything that ships to production) must leave a trail here.
@@ -181,7 +189,7 @@ Claude Code is the **architect and main developer** of this app. That role is no
 
 6. **Don't duplicate what git history already says**. Log the *intent*, *root cause*, and *gotchas* — those don't survive in a commit message. File paths and one-sentence summaries are enough; the diff has the rest.
 
-7. **If you skip this**, the next Claude session (or Jiří six months from now) will rediscover the same bug, redo the same backfill, or fight the same convention. That cost is on you.
+7. **If you skip this**, the next session six months from now will rediscover the same bug, redo the same backfill, or fight the same convention. That cost is on you.
 
 The change log is the **single source of truth for "what happened to Palkres"**. Git is secondary, journalctl is tertiary.
 
@@ -468,23 +476,59 @@ bin/jobs
 sudo journalctl -u palkres-eshop.service -f
 ```
 
-## Build order (all phase-1 tasks complete as of 2026-04-25)
-
-1. ✅ Scaffold — `rails new -d postgresql --css=tailwind`
-2. ✅ Postgres role/DBs — `palkres` role + three DBs (dev/test/prod)
-3. ✅ This CLAUDE.md
-4. ✅ Auth — `bin/rails g authentication`, role enum (customer/dealer/admin), admin seed
-5. ✅ Catalog models — Category/Manufacturer/Product/ProductCategory/ProductImage/SyncRun + Cart/Order/Payment/Shipment
-6. ✅ ARTIKON importer — fetcher, SAX handler, tree builder, orchestrator, `artikon:sync` rake task
-7. ✅ First real import — **29 222 products / 668 categories / 105 manufacturers / 136 283 links / 29 206 images** in ~85 s, peak RSS 227 MB
-8. ✅ Storefront MVP — home, category, product, search, pagy, Tailwind
-9. ✅ Cart + checkout — Turbo-driven, guest flow, stubbed shipping/payment
-10. ✅ Admin + schedule — `/admin/*` + `config/recurring.yml` → `ArtikonSyncJob` at 03:00
-11. ✅ Production deploy — systemd `palkres-eshop.service`, nginx `palkres.techtools.cz`, Let's Encrypt TLS (expires 2026-07-23)
-
 ## Post-launch change log
 
 Newest at top. Every non-trivial production change should append an entry here.
+
+### 2026-04-30 — Fix bulk-add 500: items params is a Parameters hash, not a key-value pair list
+- **Bug**: clicking "Vložit vybrané do košíku" with any selection raised `NoMethodError (undefined method '[]' for nil)` in `Storefront::CartController#bulk_add` and rendered the generic "We're sorry, but something went wrong" 500. Reproducible with the integration test below.
+- **Root cause**: the form submits items as `items[0][product_id]=…&items[0][quantity]=…`. Rails parses this into `params[:items]` as `ActionController::Parameters` keyed by the index string ("0", "1", …), **not** as an array. The old code did `Array(params[:items]).map do |_idx, row|`. `Array(parameters_obj)` wraps the object as a single-element array (it doesn't iterate as `[[k,v],…]` like `Hash#to_a` does), so the destructuring assigned `_idx = parameters_obj` and `row = nil`, then `row[:product_id]` blew up.
+- **Fix** (`app/controllers/storefront/cart_controller.rb`): iterate `params[:items].values` (which is supported on `ActionController::Parameters`) instead of relying on `Array()` + pair-destructuring. Also defensively `filter_map` so any non-Parameters entry is skipped:
+  ```ruby
+  raw_items = params[:items]
+  rows = raw_items.respond_to?(:values) ? raw_items.values : Array(raw_items)
+  entries = rows.filter_map do |row|
+    next unless row.respond_to?(:[])
+    { product_id: row[:product_id].to_i, quantity: row[:quantity].to_i }
+  end
+  ```
+- **Verified**: integration test via `ActionDispatch::Integration::Session` with CSRF disabled — POSTed `items[0..2]` with quantities `0, 2, 3` → 303 redirect to `/kosik` → 200 with the "Přidáno do košíku" flash. Cleanup: cart row destroyed.
+- **Files**: `app/controllers/storefront/cart_controller.rb`. `sudo systemctl restart palkres-eshop.service`.
+
+### 2026-04-30 — "Vložit vybrané do košíku" promoted to a floating action panel
+- **Why**: variant-picker bar was `sticky bottom-0` *inside* the variant section, so once the customer scrolled past the section (e.g. to read description, related products, or to scroll a 472-row paint family from row 1 toward the top), the CTA disappeared. The action button needs to be reachable from anywhere on the product page.
+- **Fix** (`app/views/storefront/products/show.html.erb`):
+  - Replaced the section-scoped `sticky` element with a viewport-fixed panel.
+  - **Mobile** (`<md`): full-width bar pinned to `bottom-0` of the viewport (`fixed inset-x-0 bottom-0`), white background + top border + drop shadow.
+  - **Desktop** (`md:`+): floating compact card in the bottom-right corner (`md:right-6 md:bottom-6 md:w-[22rem] md:rounded-2xl md:shadow-rose-200/40`), so it doesn't block reading the description column on the left.
+  - Added a `h-36 md:h-6` spacer above the fixed bar so the last variant row isn't hidden behind it on mobile.
+  - Submit button is now `w-full` inside the card; the "Vybráno X ks · Cena Y Kč" line stacks above on both breakpoints (no md:flex-row).
+  - `data-variant-picker-target` hooks (`total`, `totalPrice`, `submit`) unchanged — the existing Stimulus controller (`variant_picker_controller.js`) updates them as before, regardless of where the elements live in the DOM.
+- **Verified**: live page emits `<div class="fixed inset-x-0 bottom-0 z-40 …">` containing the button. Variant grid above keeps its row layout; spacer prevents overlap with the last row.
+- **Files**: `app/views/storefront/products/show.html.erb`. `bin/rails assets:precompile` + `sudo systemctl restart palkres-eshop.service`.
+
+### 2026-04-30 — Product vs. variant images: family card / hero now uses ITEMGROUP_ID photo
+- **Bug**: e.g. `/produkt/kridove-barvy-ambiente-250ml-milano-4-sun-2173` rendered a **60×24 / 408-byte placeholder** as the main product photo; same on the chalk-paint family's listing card. Across the catalog, many ARTIKON variants (per-color paint, per-size brush) ship with a placeholder JPEG at their per-variant `IMAGE_BIG` URL because the supplier doesn't have a per-variant photo — but the family/group photo at `https://www.artikon.cz/deploy/img/products/<ITEMGROUP_ID>/<ITEMGROUP_ID>.jpg` IS a real picture (18 KB for 2168.jpg in this case). We were storing only the per-variant URL, so listings + product hero showed the placeholder.
+- **Root cause**: ARTIKON's data model has TWO image levels (per-variant + per-group) but the feed XML only emits the per-variant `<IMAGE>`/`<IMAGE_BIG>`. The per-group image is implicit — accessible at the URL convention `/deploy/img/products/<ITEMGROUP_ID>/<ITEMGROUP_ID>.jpg`. Importer was ignoring the group level entirely.
+- **Fix — split product image (group/family) from variant image (per SKU)**:
+  - Migration `add_group_image_url_to_products` adds `products.group_image_url` (string).
+  - `Artikon::FeedImporter#map_item` now derives `group_image_url` from `ITEMGROUP_ID` using the URL convention (only when numeric — guards `\A\d+\z` so we don't write garbage for non-numeric group IDs).
+  - `Product#variant_image_url` (alias for `primary_image_url`) — the SHOPITEM's own per-variant photo. Still stored on `product_images`.
+  - `Product#family_image_url` — `group_image_url.presence || primary_image_url`. Used wherever we want the **product** picture rather than a specific variant.
+  - Listing card (`_card.html.erb`): family-collapsed cards (`has_variants`) now render `product.family_image_url`. Singletons unchanged (`primary_image_url`).
+  - Product detail hero (`products/show.html.erb`): when the product has variants, the big square shows `family_image_url` (the group photo) and a small **"Tato varianta"** thumbnail row underneath shows the per-variant `variant_image_url` so the customer can still see which color/size they landed on. Singletons still show their own image as the only hero.
+  - Variant grid (`#varianty` section) is **unchanged** — each row still shows its own `primary_image_url`. The user explicitly wanted "variant should have variant picture", so per-variant placeholders here are the correct, supplier-truthful behavior.
+  - Home page collage: `family_image_url` (recent products are family-collapsed there, same as listings).
+- **Backfill**: `Product.where("item_group_id ~ '^[0-9]+$'").update_all("group_image_url = 'https://…/products/' || item_group_id || '/' || item_group_id || '.jpg'")` — 29 257 rows in prod, 29 222 in dev. Future imports populate via the importer change above.
+- **Verified**:
+  - `https://palkres.techtools.cz/produkt/kridove-barvy-ambiente-250ml-milano-4-sun-2173` hero now sources `https://www.artikon.cz/deploy/img/products/2168/2168.jpg` (18 367 bytes — the real chalk-paint family photo). The "Tato varianta" thumb still points at `2173/2173.jpg` (the placeholder), which is correct since ARTIKON has no per-color photo for this paint.
+  - Category listing `/kategorie/tvoreni/dekorovani-nabytku/kridove-barvy` now renders `2168/2168.jpg` for the chalk-paint family card (was rendering `2173/2173.jpg` placeholder before).
+  - Singletons (e.g. Stabilo Woody sharpener Sun-67113) still render their own `67113/67113.jpg` (real 71 KB image), unchanged.
+- **Files**: `db/migrate/20260430135044_add_group_image_url_to_products.rb`, `app/services/artikon/feed_importer.rb`, `app/models/product.rb`, `app/views/storefront/products/_card.html.erb`, `app/views/storefront/products/show.html.erb`, `app/views/storefront/home/show.html.erb`. `bin/rails assets:precompile` run; `palkres-eshop.service` restarted.
+- **Gotcha for future**: ARTIKON variant images that come back ~400 bytes (`60×24` JPEG with a `{"s":"…","x":"60","y":"60"}` JFIF comment) are placeholders. We now sidestep them on family/listing/hero contexts by preferring the group image; if we ever want the variant grid to also fall back, we'd need a placeholder probe (size HEAD or hash compare) — punt for now since per-variant placeholders are still supplier-accurate.
+
+### 2026-04-30 — Source feed promoted to top-level CRITICAL section in CLAUDE.md
+- Added a 🔴 **CRITICAL — Source of truth: ARTIKON XML feed** section right after the file title. Spells out the canonical URL (`https://www.artikon.cz/feeds/xml/VO_XML_Feed_Komplet_2.xml`), feed size (~163 MB / ~29 222 SHOPITEMs), local cache (`tmp/artikon/feed.xml`, gitignored), the per-variant vs. group-level image convention, and a pointer to Rule 5 (SAX-only) + the three importer files in `app/services/artikon/`. Why: the URL was previously buried as a single bullet in **At-a-glance**, easy to miss; the feed is the only source of truth for catalog state and any image / pricing / stock investigation must start by re-reading it.
 
 ### 2026-04-29 — Listings collapse variants into one card per `item_group_id`
 - **Why**: ARTIKON puts every color / size variant into the catalog as a separate product (e.g. 525 entries for one Sennelier pastel family, 472 for Umton oil paint). Listings were showing each variant as its own card → 29 250 cards across the catalog, the same family fills entire pages, search for "stabilo" returned 205 hits, and the "Do košíku" button on a card added a specific arbitrary color rather than letting the customer pick. The product page already has the variant-bulk-add UX (2026-04-25); listings should funnel to it instead of duplicating it.
@@ -513,13 +557,13 @@ Newest at top. Every non-trivial production change should append an entry here.
   - `bin/rails assets:precompile` ran (new `whitespace-nowrap` is already in default Tailwind, but the CSS was rebuilt for safety).
 - **Files**: `app/models/product.rb`, `app/controllers/storefront/categories_controller.rb`, `app/controllers/storefront/search_controller.rb`, `app/controllers/storefront/home_controller.rb`, `app/views/storefront/products/_card.html.erb`, `app/views/storefront/products/_grid_with_load_more.html.erb`, `app/views/storefront/categories/show.html.erb`, `app/views/storefront/search/show.html.erb`, `app/views/storefront/home/show.html.erb`.
 
-### 2026-04-25 — Variant bulk-add + per-page + load-more + filters open by default (Pavel feedback)
-- **Why**: Pavel Holuša e-mailed feedback after his first walkthrough (2026-04-25): paint products with many color/size variants need a single page where the customer marks quantities for several variants and adds them to the cart in one click ("důležité"); listing pages need a per-page selector and a "load more" mechanism so the previous page stays visible while continuing. Follow-up message (same day) added: filters sidebar should be **expanded by default** on every breakpoint, not collapsed on mobile / only-open-when-active.
+### 2026-04-25 — Variant bulk-add + per-page + load-more + filters open by default
+- **Why**: paint products with many color/size variants need a single page where the customer marks quantities for several variants and adds them to the cart in one click; listing pages need a per-page selector and a "load more" mechanism so the previous page stays visible while continuing; filters sidebar should be **expanded by default** on every breakpoint (not collapsed on mobile / only-open-when-active).
 - **What changed (user-visible)**:
   - Product detail page (`/produkt/:slug`) now shows a "Vyberte varianty" section listing every product in the same `item_group_id`. Each row has a thumbnail, color/size label, price, stock indicator and a [−][n][+] qty stepper. A sticky footer shows live "Vybráno: X ks · Cena celkem: Y Kč" and a single "Vložit vybrané do košíku" button posts the whole batch in one request. Family name (e.g. "Kulatý štětec Master 1006R") is extracted by splitting on the en-dash so the page heading reads cleanly.
   - Category and search listings now have a "Na stránku: 24 / 48 / 96" selector next to the sort dropdown.
   - Below the grid is a "Načíst další produkty" button that fetches the next page and **appends** to the current grid without losing the items already shown. Numbered pagination is still rendered below for jump-to-page.
-  - Filters sidebar (`<details>`) is now **always expanded by default** on every breakpoint (was: collapsed on mobile, only auto-open when filters were active). Pavel asked for this explicitly so the filter chips/checkboxes are visible without an extra tap.
+  - Filters sidebar (`<details>`) is now **always expanded by default** on every breakpoint (was: collapsed on mobile, only auto-open when filters were active) so the filter chips/checkboxes are visible without an extra tap.
 - **Implementation**:
   - `Cart#add_many(entries)` (`app/models/cart.rb`): transactional bulk add; quantities ≤ 0 are skipped; reuses `add_product` so existing-cart-item increment semantics are preserved.
   - New route `POST /kosik/pridat-hromadne` → `Storefront::CartController#bulk_add` (`config/routes.rb`, `app/controllers/storefront/cart_controller.rb`). Reads `params[:items]` (a hash keyed by index), filters to integers, redirects to /kosik with a Czech flash count.
@@ -603,11 +647,10 @@ Newest at top. Every non-trivial production change should append an entry here.
 - **Asset rebuild**: `bin/rails assets:precompile` to ship new utilities.
 - Verified end-to-end: logged in as `admin@palkres.cz`, all 5 admin routes return 200 including the previously-404 slug URL `/admin/products/olejova-barva-renesans-20ml-41-zelen-hooker-sun-1365`. Content snippets present: "Rychlé akce", "ARTIKON ID", "Ceny", "Kategorie".
 
-### 2026-04-25 — Real bank account wired (techtools s.r.o., ČS 0800)
-- Earlier change-log claimed `PALKRES_BANK_IBAN=CZ6508000000192000145399` was a placeholder. **Replaced with the real account from the ČS smlouva (26.5.2025): `6755089389/0800` → `CZ1908000000006755089389`**, beneficiary name `techtools s.r.o.` (NOT Palkres yet — Palkres will open its own once the e-shop is approved; until then payments flow to Techtools per Jiří).
-- IBAN check digits computed via ISO 13616 (`98 − ((bank ‖ prefix ‖ account ‖ encoded(country) ‖ 00) mod 97)`).
+### 2026-04-25 — Real bank account wired into QR-platba
+- Earlier change-log claimed the IBAN was a placeholder. Replaced with the real account from `.env`. IBAN check digits computed via ISO 13616 (`98 − ((bank ‖ prefix ‖ account ‖ encoded(country) ‖ 00) mod 97)`).
 - `Payments::CzechQr` gains `placeholder?` predicate; `available?` now also returns false when IBAN is one of the known placeholders, so the QR + SPAYD block won't render with a fake account if the env ever gets reverted.
-- Sample SPAYD verified: `SPD*1.0*ACC:CZ1908000000006755089389*AM:668.00*CC:CZK*X-VS:202604*MSG:Palkres PK-…*RN:techtools s.r.o.`
+- Sample SPAYD format verified: `SPD*1.0*ACC:<IBAN>*AM:<amount>*CC:CZK*X-VS:<vs>*MSG:<msg>*RN:<name>`.
 
 ### 2026-04-25 — Checkout: Doprava + Platba split into separate sections
 - Old UX: shipping + payment options were mixed in a single 2-column grid under one "Doprava a platba" heading. Looked like 4 mutually-exclusive options instead of "pick one shipping AND one payment".
@@ -665,7 +708,7 @@ Newest at top. Every non-trivial production change should append an entry here.
 Verified post-deploy with `curl -A "Mozilla/5.0 (iPhone…)"` against `/`, `/hledat`, `/hledat?q=stabilo`, `/kategorie/*`, `/produkt/*`, `/kosik` — all 200, all serve real HTML.
 
 ### 2026-04-25 — Core rule 11: document every change in this file
-- Added Rule 11 to **Critical project rules**: every production change must leave a Post-launch change log entry, with intent + root cause + file-path summary + side effects. Architect/main-developer role (Claude Code under Jiří's direction) is named explicitly so the responsibility is unambiguous.
+- Added Rule 11 to **Critical project rules**: every production change must leave a Post-launch change log entry, with intent + root cause + file-path summary + side effects.
 - Strengthens the older "How to log a new change" section by making it a *binding rule* rather than a suggestion.
 - Reinforces existing rule that the change log is single source of truth for "what happened to Palkres" — git history and journalctl are secondary.
 
@@ -695,7 +738,7 @@ Verified post-deploy with `curl -A "Mozilla/5.0 (iPhone…)"` against `/`, `/hle
 - Fix: `Storefront::CartController#add` now redirects to `/kosik` with `status: :see_other`, which Turbo follows correctly for all form submissions.
 
 ### 2026-04-25 — TLS / custom domain
-- DNS: WEDOS A record `palkres.techtools.cz → 51.195.41.226` created by Jiří.
+- DNS: WEDOS A record `palkres.techtools.cz → 51.195.41.226`.
 - Issued Let's Encrypt cert via `sudo certbot --nginx -d palkres.techtools.cz --redirect` (auto-renews via existing certbot timer).
 - Verified HTTPS 200 for `/`, `/hledat`, `/kategorie/*`, `/produkt/*`, `/kosik`, `/session/new`; `/admin` 302s to login.
 
@@ -741,7 +784,7 @@ Verified post-deploy with `curl -A "Mozilla/5.0 (iPhone…)"` against `/`, `/hle
 
 ## How to log a new change
 
-Every time you (Claude or human) make a visible production change, append a new dated section to **Post-launch change log** above the previous entry. Format:
+Every production-visible change appends a dated section to **Post-launch change log** above the previous entry. Format:
 
 ```
 ### YYYY-MM-DD — short title
@@ -751,21 +794,12 @@ Every time you (Claude or human) make a visible production change, append a new 
 - Side effects / follow-ups.
 ```
 
-This file is the single source of truth for "what happened to Palkres". Git history is secondary — the change log is human-readable and survives rebases.
+The change log is the single source of truth for "what happened" — git history is secondary.
 
-## Out of scope for first client demo
+## Out of scope (current build)
 
-- Multi-language storefront (CZ only; stubbed for sk/en later)
+- Multi-language storefront (CZ only)
 - Multiple suppliers (ARTIKON only)
 - B2B dealer pricing UI
 - Loyalty / gift cards / coupons
 - Pohoda / Money S3 / Fakturoid invoicing integration
-
-## Open questions for Pavel Holuša (next meeting)
-
-- Domain? (`palkres.cz`, `palkres-vytvarne.cz`, other?)
-- Payment gateway — GoPay / ComGate / Stripe / bank transfer?
-- Shipping carriers — Zásilkovna / Česká pošta / DPD / PPL / osobní odběr?
-- VAT ID invoicing requirements from day 1?
-- Brand: logo, color palette, hero imagery
-- Any other suppliers planned? (Drives supplier-abstraction timing.)

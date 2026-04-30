@@ -10,7 +10,13 @@ class Storefront::CartController < Storefront::BaseController
   end
 
   def bulk_add
-    entries = Array(params[:items]).map do |_idx, row|
+    # The form posts items as `items[0][product_id]=…&items[0][quantity]=…`,
+    # so Rails parses params[:items] as ActionController::Parameters keyed by
+    # the index ("0", "1", …). Iterate values, not pairs.
+    raw_items = params[:items]
+    rows = raw_items.respond_to?(:values) ? raw_items.values : Array(raw_items)
+    entries = rows.filter_map do |row|
+      next unless row.respond_to?(:[])
       { product_id: row[:product_id].to_i, quantity: row[:quantity].to_i }
     end
     added = current_cart.add_many(entries)
